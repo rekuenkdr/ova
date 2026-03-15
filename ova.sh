@@ -10,6 +10,11 @@ export MKL_NUM_THREADS=1
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+# CUDA-version-specific configuration
+# To support a different CUDA version, change these values and run: uv lock && uv sync
+SUPPORTED_CUDA="13"
+PYTORCH_INDEX_CUDA="cu130"
+
 OVA_DIR="$ROOT_DIR/.ova"
 BACKEND_PID="$OVA_DIR/backend.pid"
 BACKEND_GROUP="$OVA_DIR/backend.group"
@@ -44,14 +49,16 @@ Options:
   OVA_PROFILE=<profile>  Set the profile to use (default: default)
 
 Commands:
-  install   Sync uv environment and fetch models
-  start     Start backend + frontend server (non-blocking)
-  stop      Stop running services
-  restart   Restart services (keeps LLM loaded for faster init)
-  help      Show this message
+  install           Sync uv environment and fetch models
+  configure-cuda    Configure CUDA version (auto-detect or specify: ova configure-cuda 12)
+  start             Start backend + frontend server (non-blocking)
+  stop              Stop running services
+  restart           Restart services (keeps LLM loaded for faster init)
+  help              Show this message
 
 Example:
   OVA_PROFILE=dua ova start
+  ova configure-cuda 12    # Switch to CUDA 12
 EOF
 }
 
@@ -64,27 +71,41 @@ ensure_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing '$1' in PATH"
 }
 
-ensure_uv_lock() {
-  [[ -f "$ROOT_DIR/uv.lock" ]] || die "uv.lock not found in project root"
+detect_cuda() {
+  local cuda_ver
+
+  # Allow manual override
+  if [[ -n "${OVA_CUDA_VERSION:-}" ]]; then
+    cuda_ver="$OVA_CUDA_VERSION"
+    echo "CUDA version (override): $cuda_ver"
+  elif command -v nvidia-smi >/dev/null 2>&1; then
+    cuda_ver="$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version: \K[0-9]+\.[0-9]+' || true)"
+    if [[ -z "$cuda_ver" ]]; then
+      echo "Warning: could not parse CUDA version from nvidia-smi"
+      return 1
+    fi
+    echo "CUDA version detected: $cuda_ver"
+  else
+    echo "Warning: nvidia-smi not found, cannot detect CUDA version"
+    return 1
+  fi
+
+  DETECTED_CUDA="$cuda_ver"
+  local detected_major="${cuda_ver%%.*}"
+
+  if [[ "$detected_major" != "$SUPPORTED_CUDA" ]]; then
+    echo ""
+    echo "  WARNING: CUDA version mismatch!"
+    echo "  System CUDA:   $DETECTED_CUDA (major: $detected_major)"
+    echo "  Configured:    CUDA $SUPPORTED_CUDA ($PYTORCH_INDEX_CUDA)"
+    echo ""
+    echo "  To fix, run:   ova configure-cuda $detected_major"
+    echo ""
+  fi
 }
 
-ensure_pip() {
-  if uv run python3 - <<'PY'
-try:
-    import pip  # noqa: F401
-except Exception as exc:
-    raise SystemExit(1) from exc
-PY
-  then
-    echo "pip already available in uv venv"
-    return 0
-  fi
-
-  echo "Installing pip into uv venv"
-  if uv run python3 -m ensurepip --upgrade; then
-    return 0
-  fi
-  uv pip install --upgrade pip
+ensure_uv_lock() {
+  [[ -f "$ROOT_DIR/uv.lock" ]] || die "uv.lock not found in project root"
 }
 
 is_running() {
@@ -281,32 +302,18 @@ ensure_hf_models() {
   done
 }
 
-FLASH_ATTN_WHEEL="https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.11/flash_attn-2.8.3%2Bcu131torch2.9-cp313-cp313-linux_x86_64.whl"
-PYTORCH_INDEX="https://download.pytorch.org/whl/cu130"
-
-ensure_flash_attn() {
-  # Check if flash-attn is installed
-  if uv run python3 -c "import flash_attn" 2>/dev/null; then
-    echo "flash-attn already installed"
-    return 0
-  fi
-
-  echo "Installing PyTorch with CUDA 13.0 support..."
-  uv run pip install torch==2.9.1+cu130 torchaudio==2.9.1+cu130 torchvision==0.24.1+cu130 --index-url "$PYTORCH_INDEX"
-
-  echo "Installing flash-attn from prebuilt wheel..."
-  uv run pip install "$FLASH_ATTN_WHEEL"
-}
-
 cmd="${1:-help}"
 
 case "$cmd" in
   install)
     ensure_cmd uv
     ensure_uv_lock
+    detect_cuda || true
     uv sync --frozen
-    ensure_pip
-    ensure_flash_attn
+    # Apply post-install patches for dependency compatibility
+    for patch_script in "$ROOT_DIR"/patches/apply-*.sh; do
+      [[ -f "$patch_script" ]] && bash "$patch_script"
+    done
     if [[ "${OVA_LLM_PROVIDER:-ollama}" != "openai" ]]; then
       ensure_cmd ollama
       ensure_ollama_model "$CHAT_MODEL"
@@ -318,6 +325,7 @@ case "$cmd" in
   start)
     ensure_cmd uv
     ensure_uv_lock
+    detect_cuda || true
     DISABLE_FRONTEND="${OVA_DISABLE_FRONTEND_ACCESS:-false}"
 
     echo "Starting Outrageous Voice Assistant..."
@@ -386,6 +394,29 @@ case "$cmd" in
     stop_service "Web server" "$FRONTEND_PID" "$FRONTEND_GROUP"
     # Start services
     "$0" start
+    ;;
+  configure-cuda)
+    ensure_cmd uv
+    # Detect or accept CUDA version
+    if [[ -n "${2:-}" ]]; then
+      CUDA_MAJOR="$2"
+    elif detect_cuda 2>/dev/null; then
+      CUDA_MAJOR="${DETECTED_CUDA%%.*}"
+    else
+      die "Could not detect CUDA version. Usage: ova configure-cuda <12|13>"
+    fi
+
+    echo "Configuring project for CUDA $CUDA_MAJOR..."
+
+    "$ROOT_DIR/.venv/bin/python" 2>/dev/null -c "pass" || uv venv --seed -q
+
+    uv run python3 "$ROOT_DIR/scripts/configure_cuda.py" "$CUDA_MAJOR"
+    echo ""
+    echo "Running uv lock..."
+    uv lock
+    echo ""
+    echo "CUDA $CUDA_MAJOR configuration complete."
+    echo "Run 'ova install' to sync the environment."
     ;;
   help|-h|--help)
     usage

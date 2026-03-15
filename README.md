@@ -33,15 +33,14 @@ A **fully-local** AI voice assistant with real-time streaming TTS, voice cloning
 - **LLM provider** (one of):
   - [Ollama](https://ollama.com/) installed and running (default)
   - Any OpenAI-compatible API — local or remote (`OVA_LLM_PROVIDER=openai`)
-- NVIDIA GPU (Ampere or newer) with CUDA 13.0 — all dependencies are pinned to this version:
-  - PyTorch 2.9.1+cu130 (from `pytorch-cu130` index)
-  - onnxruntime-gpu (from `ort-cuda-13-nightly` index)
-  - flash-attn 2.8.3+cu131 (prebuilt wheel for torch 2.9 / Python 3.13 / linux x86_64)
-  - If your CUDA version or OS differs, you'll need to install compatible builds of these packages separately
+- NVIDIA GPU (Ampere or newer) with CUDA 12 or 13. Default is CUDA 13 — run `./ova.sh configure-cuda 12` before install if on CUDA 12
 
 ### Install & Run
 
 ```bash
+# If your CUDA version is not 13 (the default), configure first:
+./ova.sh configure-cuda    # auto-detect, or: ./ova.sh configure-cuda 12
+
 ./ova.sh install
 ```
 
@@ -639,6 +638,7 @@ ova/
 ├── prompts/             # Default system prompts by language
 │   ├── en/, es/, fr/, de/, it/, pt/, ru/, ja/, ko/, zh/
 └── scripts/
+    ├── configure_cuda.py          # CUDA version configurator (12/13)
     ├── enhance_profile_audio.py   # Audio denoising utility
     ├── generate_voice_prompts.py  # Voice clone prompt generator
     └── profile_pipeline.py        # Pipeline profiling utility

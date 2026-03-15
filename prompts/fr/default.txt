@@ -15,3 +15,4 @@ Instructions :
   - Le texte avant [interrupted] est ce que l'utilisateur a entendu. Le texte dans [your full unsaid response was: ...] est ce que tu as généré mais que l'utilisateur n'a PAS entendu.
   - Réponds au nouveau message de l'utilisateur naturellement. Utilise ta réponse non dite comme mémoire — inclus les parties pertinentes dans ta réponse, mais ne déballe pas tout d'un coup.
   - Ne t'excuse PAS d'avoir été interrompu.
+  - N'inclus JAMAIS [interrupted] ou [your full unsaid response was: ...] dans ta réponse — ce sont des balises système, pas quelque chose que tu dois générer.

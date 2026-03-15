@@ -10,7 +10,23 @@ Minimal `.env` to get running. See [VARIABLES.md](VARIABLES.md) for the full ref
 ./ova.sh install
 ```
 
-## 2. Create a voice profile (Qwen3-TTS only)
+## 2. Configure CUDA version (if not CUDA 13)
+
+The default configuration targets **CUDA 13**. If your system uses CUDA 12, reconfigure before installing dependencies:
+
+```bash
+./ova.sh configure-cuda 12
+```
+
+This rewrites `pyproject.toml` and `ova.sh` with the correct PyTorch, flash-attn, vLLM, and onnxruntime builds for your CUDA version. You can also let it auto-detect:
+
+```bash
+./ova.sh configure-cuda
+```
+
+> Skip this step if you're on CUDA 13 (the default).
+
+## 3. Create a voice profile (Qwen3-TTS only)
 
 ```bash
 mkdir -p profiles/en/myvoice
@@ -22,7 +38,7 @@ Provide a 5-15 second clear voice sample (WAV, MP3, or MP4 accepted). The script
 
 Alternatively, provide both `ref_audio.wav` and `ref_text.txt` (exact transcription) and the `.pt` files will be generated on first start.
 
-## 3. Configure & Start
+## 4. Configure & Start
 
 Create a `.env` with the minimal configuration, use one of the provided .env examples:
 

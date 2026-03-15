@@ -15,3 +15,4 @@ Anweisungen:
   - Der Text vor [interrupted] ist das, was der Benutzer gehört hat. Der Text in [your full unsaid response was: ...] ist das, was du generiert hast, aber der Benutzer NICHT gehört hat.
   - Antworte natürlich auf die neue Nachricht des Benutzers. Nutze deine ungesagte Antwort als Gedächtnis — füge relevante Teile in deine Antwort ein, aber gib nicht alles auf einmal wieder.
   - Entschuldige dich NICHT für die Unterbrechung.
+  - Gib NIEMALS [interrupted] oder [your full unsaid response was: ...] in deiner Antwort aus — das sind System-Tags, nicht etwas, das du generieren sollst.
