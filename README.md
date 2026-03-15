@@ -562,10 +562,12 @@ The following can be changed at runtime without restart via `POST /v1/settings`:
 
 ## SDK
 
-The OVA SDK is a standalone Python package for programmatic access to the OVA server from any machine.
+The OVA SDK is a standalone Python package for programmatic access to the OVA server from any machine. It is installed automatically during `./ova.sh install`.
+
+For standalone or remote use, install directly from git:
 
 ```bash
-pip install ova-sdk
+pip install git+https://github.com/rekuenkdr/ova-python-sdk.git
 ```
 
 ```python
