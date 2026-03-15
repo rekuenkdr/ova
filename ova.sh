@@ -68,25 +68,6 @@ ensure_uv_lock() {
   [[ -f "$ROOT_DIR/uv.lock" ]] || die "uv.lock not found in project root"
 }
 
-ensure_pip() {
-  if uv run python3 - <<'PY'
-try:
-    import pip  # noqa: F401
-except Exception as exc:
-    raise SystemExit(1) from exc
-PY
-  then
-    echo "pip already available in uv venv"
-    return 0
-  fi
-
-  echo "Installing pip into uv venv"
-  if uv run python3 -m ensurepip --upgrade; then
-    return 0
-  fi
-  uv pip install --upgrade pip
-}
-
 is_running() {
   local pidfile=$1
   [[ -f "$pidfile" ]] || return 1
@@ -281,23 +262,6 @@ ensure_hf_models() {
   done
 }
 
-FLASH_ATTN_WHEEL="https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.11/flash_attn-2.8.3%2Bcu131torch2.9-cp313-cp313-linux_x86_64.whl"
-PYTORCH_INDEX="https://download.pytorch.org/whl/cu130"
-
-ensure_flash_attn() {
-  # Check if flash-attn is installed
-  if uv run python3 -c "import flash_attn" 2>/dev/null; then
-    echo "flash-attn already installed"
-    return 0
-  fi
-
-  echo "Installing PyTorch with CUDA 13.0 support..."
-  uv run pip install torch==2.9.1+cu130 torchaudio==2.9.1+cu130 torchvision==0.24.1+cu130 --index-url "$PYTORCH_INDEX"
-
-  echo "Installing flash-attn from prebuilt wheel..."
-  uv run pip install "$FLASH_ATTN_WHEEL"
-}
-
 cmd="${1:-help}"
 
 case "$cmd" in
@@ -305,8 +269,6 @@ case "$cmd" in
     ensure_cmd uv
     ensure_uv_lock
     uv sync --frozen
-    ensure_pip
-    ensure_flash_attn
     if [[ "${OVA_LLM_PROVIDER:-ollama}" != "openai" ]]; then
       ensure_cmd ollama
       ensure_ollama_model "$CHAT_MODEL"
