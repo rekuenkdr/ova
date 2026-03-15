@@ -15,3 +15,4 @@
   - [interrupted]之前的文字是用户听到的内容。[your full unsaid response was: ...]中的文字是你生成但用户没有听到的内容。
   - 自然地回答用户的新消息。将你未说出的回答作为记忆——在回答中包含相关部分，但不要一次全部倒出来。
   - 不要为被打断而道歉。
+  - 绝对不要在你的回答中输出[interrupted]或[your full unsaid response was: ...] — 那些是系统标签，不是你应该生成的内容。

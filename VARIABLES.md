@@ -16,6 +16,7 @@ Complete reference for all OVA environment variables.
 | `OVA_FRONTEND_PORT` | `8080` | Static file server port |
 | `OVA_DEBUG` | `false` | Enable DEBUG-level logging for all components |
 | `OVA_PROFILE` | `default` | Profile name for multi-config setups *(shell-only, read by `ova.sh`)* |
+| `OVA_CUDA_VERSION` | *(auto-detect)* | Override CUDA version detection in `ova.sh`. Set to skip `nvidia-smi` auto-detect *(shell-only)* |
 | `UVICORN_RELOAD` | *(empty)* | Set to any non-empty value to enable uvicorn `--reload` *(shell-only)* |
 
 ## Language
@@ -68,7 +69,9 @@ All variables in this section apply only when `OVA_TTS_ENGINE=qwen3`.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OVA_ENABLE_STREAMING_OPTIMIZATIONS` | `true` | Enable `torch.compile` for TTS. Mode auto-selected by stream format |
-| `OVA_CODEBOOK_CUDA_GRAPH` | `false` | Capture codebook predictor as CUDA graph. ~2x codebook speedup, +500MB VRAM |
+| `OVA_CODEBOOK_CUDA_GRAPH` | `false` | Capture codebook predictor as CUDA graph. ~2x codebook speedup, +500MB VRAM. **Requires [`wip/experimental`](https://github.com/rekuenkdr/Qwen3-TTS-streaming/tree/wip/experimental)** |
+| `OVA_USE_PAGED_ENGINE` | `false` | Paged attention engine with explicit KV cache + CUDA graphs. Alternative to torch.compile. Mutually exclusive with `OVA_CODEBOOK_CUDA_GRAPH`. Requires flash-attn, triton, xxhash. **Requires [`wip/experimental`](https://github.com/rekuenkdr/Qwen3-TTS-streaming/tree/wip/experimental)** |
+| `OVA_PAGED_GPU_MEMORY_UTILIZATION` | `0.9` | GPU memory fraction for paged engine KV cache (0.0-1.0). Only used when `OVA_USE_PAGED_ENGINE=true`. **Requires [`wip/experimental`](https://github.com/rekuenkdr/Qwen3-TTS-streaming/tree/wip/experimental)** |
 
 ## Kokoro-TTS
 

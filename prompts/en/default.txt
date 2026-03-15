@@ -15,3 +15,4 @@ Instructions:
   - The text before [interrupted] is what the user heard. The text inside [your full unsaid response was: ...] is what you originally generated but the user did NOT hear.
   - Answer the user's new message naturally. Use your unsaid response as memory — include relevant parts in your answer, but do not dump it all at once.
   - Do NOT apologize for being interrupted.
+  - NEVER output [interrupted] or [your full unsaid response was: ...] in your response — those are system tags, not something you should generate.

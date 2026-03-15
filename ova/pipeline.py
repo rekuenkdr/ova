@@ -396,6 +396,10 @@ class OVAPipeline:
         # Enable TensorFloat32 for better performance on Ampere+ GPUs
         torch.set_float32_matmul_precision('high')
 
+        # torch 2.10 lowered cudagraph_dynamic_shape_warn_limit from 50 to 8.
+        # Streaming TTS generates ~9 distinct shapes (same as torch 2.9), restore previous threshold.
+        torch._inductor.config.triton.cudagraph_dynamic_shape_warn_limit = 50
+
         logger_tts.info(f"Loading Qwen3-TTS: {QWEN3_TTS_MODEL}")
         self.tts_model = Qwen3TTSModel.from_pretrained(
             QWEN3_TTS_MODEL,

@@ -526,8 +526,12 @@ def generate_audio_stream(text: str, voice=None, language=None):
 
 
 def _clean_markdown(text: str) -> str:
-    """Remove markdown artifacts for TTS."""
-    return text.replace("**", "").replace("_", "").replace("__", "").replace("#", "").strip()
+    """Remove markdown artifacts and system tags for TTS."""
+    import re
+    text = text.replace("**", "").replace("_", "").replace("__", "").replace("#", "")
+    text = text.replace("[interrupted]", "").replace("[interrupted before speaking]", "")
+    text = re.sub(r'\[your full unsaid response was:.*?\]', '', text, flags=re.DOTALL)
+    return text.strip()
 
 
 def _audio_to_pcm(audio_chunk) -> bytes:

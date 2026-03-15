@@ -217,8 +217,7 @@ docs/
 # profile voice folders (user-created, all contents are local)
 profiles/*/*/
 
-# tests, test output , old patches
+# tests, test output
 tests/
-patches/
 output/
 
