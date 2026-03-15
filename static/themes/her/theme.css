@@ -1,0 +1,491 @@
+/* Her Theme - Samantha OS Inspired */
+/* Minimal, elegant, cinematic warmth from the film "Her" */
+
+:root {
+  /* Background colors - warm coral orange */
+  --bg-primary: #f05545;
+  --bg-secondary: #e84a3a;
+  --bg-tertiary: #d94433;
+  --bg-surface: rgba(232, 74, 58, 0.95);
+  --bg-glass: rgba(220, 70, 55, 0.8);
+
+  /* Text colors - soft whites and creams */
+  --text-primary: #fff8f5;
+  --text-secondary: rgba(255, 248, 245, 0.85);
+  --text-muted: rgba(255, 248, 245, 0.6);
+
+  /* Accent colors - soft pink/white glow */
+  --accent-primary: #ffcec4;
+  --accent-secondary: #ffe4df;
+  --accent-glow: rgba(255, 206, 196, 0.5);
+  --accent-subtle: rgba(255, 206, 196, 0.2);
+
+  /* Status colors - warm tones for cohesion */
+  --success: #ffcec4;
+  --success-glow: rgba(255, 206, 196, 0.5);
+  --danger: #ff7b7b;
+  --danger-glow: rgba(255, 123, 123, 0.4);
+  --warning: #ffb088;
+  --processing: #ffe4df;
+  --processing-glow: rgba(255, 228, 223, 0.5);
+
+  /* Shadows and effects */
+  --shadow-color: rgba(150, 40, 20, 0.3);
+  --shadow-glow: 0 0 40px rgba(255, 206, 196, 0.4);
+  --shadow-soft: 0 4px 30px rgba(150, 40, 20, 0.2);
+  --shadow-hard: 0 8px 40px rgba(150, 40, 20, 0.3);
+
+  /* Glass morphism */
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+
+  /* Grid background - disabled */
+  --grid-color: transparent;
+  --grid-line: transparent;
+
+  /* Button specific */
+  --btn-bg: linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  --btn-shadow: 0 8px 32px rgba(150, 40, 20, 0.25);
+  --btn-shadow-inset: inset 0 2px 20px rgba(150, 40, 20, 0.2);
+
+  /* Rings - disabled for this theme */
+  --holo-ring: transparent;
+  --holo-ring-danger: transparent;
+  --holo-ring-processing: transparent;
+  --holo-ring-success: transparent;
+
+  /* Input fields */
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --input-focus: rgba(255, 255, 255, 0.4);
+}
+
+/* ========== Background ========== */
+[data-theme="her"] body {
+  background: linear-gradient(
+    160deg,
+    #f46853 0%,
+    #f05545 20%,
+    #e84a3a 40%,
+    #de4235 60%,
+    #d43d30 80%,
+    #c9372b 100%
+  );
+}
+
+[data-theme="her"] body::before {
+  display: none;
+}
+
+/* ========== Hide Default Button Elements ========== */
+[data-theme="her"] .talk .label,
+[data-theme="her"] .talk .sub,
+[data-theme="her"] .talk .icon,
+[data-theme="her"] .talk .wave {
+  display: none !important;
+}
+
+/* ========== Disable Rings ========== */
+[data-theme="her"] .holo-ring,
+[data-theme="her"] .pulse-ring {
+  display: none !important;
+}
+
+/* ========== Main Button ========== */
+[data-theme="her"] .talk {
+  --voice-size: min(200px, 55vw);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  position: relative;
+  overflow: visible;
+}
+
+[data-theme="her"] .talk:hover {
+  transform: none;
+}
+
+[data-theme="her"] .talk:active {
+  transform: scale(0.97);
+}
+
+[data-theme="her"] .talk:focus-visible {
+  outline: none;
+}
+
+/* ========== Circle Shape (Non-Playing States) ========== */
+[data-theme="her"] .talk::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  transform: translate(-50%, -50%);
+  border: 3.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow:
+    0 0 20px rgba(255, 255, 255, 0.4),
+    0 0 40px rgba(255, 200, 190, 0.25);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+/* ========== Idle State ========== */
+[data-theme="her"] .talk.state-idle::after {
+  animation: her-breathe 4s ease-in-out infinite;
+}
+
+@keyframes her-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 15px rgba(255, 255, 255, 0.35),
+      0 0 35px rgba(255, 200, 190, 0.2);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow:
+      0 0 25px rgba(255, 255, 255, 0.5),
+      0 0 50px rgba(255, 200, 190, 0.35);
+    opacity: 1;
+  }
+}
+
+/* ========== Recording State ========== */
+[data-theme="her"] .talk.state-recording::after {
+  animation: her-pulse 1s ease-in-out infinite;
+}
+
+@keyframes her-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow:
+      0 0 20px rgba(255, 255, 255, 0.5),
+      0 0 40px rgba(255, 200, 190, 0.3);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.12);
+    box-shadow:
+      0 0 35px rgba(255, 255, 255, 0.7),
+      0 0 70px rgba(255, 200, 190, 0.5);
+  }
+}
+
+/* ========== Waiting State ========== */
+[data-theme="her"] .talk.state-waiting::after {
+  animation: her-morph 2.5s ease-in-out infinite;
+}
+
+@keyframes her-morph {
+  0%, 100% {
+    border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  25% {
+    border-radius: 40% 60% 60% 40%;
+    transform: translate(-50%, -50%) rotate(90deg) scale(1.02);
+  }
+  50% {
+    border-radius: 50%;
+    transform: translate(-50%, -50%) rotate(180deg) scale(1);
+  }
+  75% {
+    border-radius: 60% 40% 40% 60%;
+    transform: translate(-50%, -50%) rotate(270deg) scale(1.02);
+  }
+}
+
+/* ========== Restart State ========== */
+[data-theme="her"] .talk.state-restart::after {
+  border-color: rgba(255, 123, 123, 0.9);
+  animation: her-restart 1.5s ease-in-out infinite;
+}
+
+@keyframes her-restart {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(255, 123, 123, 0.4),
+      0 0 40px rgba(255, 123, 123, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 35px rgba(255, 123, 123, 0.6),
+      0 0 70px rgba(255, 123, 123, 0.4);
+  }
+}
+
+/* ========== Samantha Infinity SVG ========== */
+[data-theme="her"] .samantha-infinity {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 160px;
+  height: 54px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Hide circle when playing */
+[data-theme="her"] .talk.state-playing::after {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  transition: all 0.35s ease-out;
+}
+
+/* Show infinity when playing */
+[data-theme="her"] .talk.state-playing .samantha-infinity {
+  display: block;
+  animation: her-infinity-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes her-infinity-appear {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Base infinity path - always visible, subtle glow */
+[data-theme="her"] .infinity-base {
+  stroke: rgba(255, 255, 255, 0.25);
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.15));
+}
+
+/* Outer glow layer - soft bloom effect behind the spark */
+[data-theme="her"] .infinity-glow-outer {
+  /* Path length ~420. Glow segment = 80, gap = rest */
+  stroke-dasharray: 80 340;
+  stroke-dashoffset: 0;
+  animation: her-flow 3s linear infinite;
+  opacity: 0.4;
+}
+
+/* Core glow path - the bright "spark" traveling along */
+[data-theme="her"] .infinity-glow {
+  /* Path length ~420. Bright segment = 55, gap = rest */
+  stroke-dasharray: 55 365;
+  stroke-dashoffset: 0;
+  animation: her-flow 3s linear infinite;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 6px rgba(255, 255, 255, 0.9))
+    drop-shadow(0 0 12px rgba(255, 200, 180, 0.6));
+}
+
+@keyframes her-flow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -420;
+  }
+}
+
+/* ========== UI Elements ========== */
+[data-theme="her"] .settings-panel {
+  background: linear-gradient(135deg, rgba(232, 74, 58, 0.98) 0%, rgba(200, 55, 43, 0.98) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="her"] .settings-overlay {
+  background: rgba(200, 55, 43, 0.6);
+}
+
+[data-theme="her"] .action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="her"] .action-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="her"] .action-btn svg {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="her"] .action-btn:hover svg {
+  color: white;
+}
+
+[data-theme="her"] .text-input {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+[data-theme="her"] .text-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="her"] .text-input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="her"] .settings-btn,
+[data-theme="her"] .theme-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="her"] .settings-btn:hover,
+[data-theme="her"] .theme-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="her"] .settings-btn svg,
+[data-theme="her"] .theme-btn svg {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="her"] .settings-btn:hover svg,
+[data-theme="her"] .theme-btn:hover svg {
+  color: white;
+}
+
+[data-theme="her"] .divider {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="her"] .divider::before,
+[data-theme="her"] .divider::after {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ========== Settings Form Elements ========== */
+[data-theme="her"] .setting-select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
+}
+
+[data-theme="her"] .setting-select:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="her"] .setting-textarea {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="her"] .setting-textarea:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="her"] .toggle-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="her"] .toggle-thumb {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="her"] .setting-toggle input:checked + .toggle-track {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="her"] .setting-toggle input:checked + .toggle-track .toggle-thumb {
+  background: white;
+}
+
+[data-theme="her"] .btn-primary {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="her"] .btn-primary:hover {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 6px 25px rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="her"] .btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+[data-theme="her"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ========== Scrollbar ========== */
+@supports (-webkit-appearance: none) {
+  [data-theme="her"] ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  [data-theme="her"] ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  [data-theme="her"] ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+
+  [data-theme="her"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+/* ========== Theme Toggle ========== */
+[data-theme="her"] .theme-toggle-btn[data-theme="her"].active {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+}
+
+/* ========== Mobile ========== */
+@media (max-width: 480px) {
+  [data-theme="her"] .talk {
+    --voice-size: min(160px, 50vw);
+  }
+
+  [data-theme="her"] .talk::after {
+    width: 65px;
+    height: 65px;
+    border-width: 2.5px;
+  }
+
+  [data-theme="her"] .samantha-infinity {
+    width: 130px;
+    height: 44px;
+  }
+
+  [data-theme="her"] .infinity-base,
+  [data-theme="her"] .infinity-glow,
+  [data-theme="her"] .infinity-glow-outer {
+    stroke-width: 2;
+  }
+
+  [data-theme="her"] .infinity-glow-outer {
+    stroke-width: 5;
+  }
+
+  [data-theme="her"] .text-input:not(:focus) {
+    animation: her-input-glow 4s ease-in-out infinite;
+  }
+
+  @keyframes her-input-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2); }
+    50% { box-shadow: 0 0 10px 1px rgba(255, 255, 255, 0.12); }
+  }
+}

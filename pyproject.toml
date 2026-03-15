@@ -1,0 +1,59 @@
+[project]
+name = "ova"
+version = "0.1.0"
+description = "Outrageous Voice Assistant - Fully local end-to-end voice assistant pipeline using open weight models."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=1.24,<2.3",
+    "soxr>=1.0.0",
+    "torch>=2.9.1",
+    "torchaudio>=2.9.1",
+    "torchvision>=0.24.0",
+    "fastapi>=0.128.0",
+    "kokoro>=0.9.4",
+    "qwen-asr[vllm]",
+    "vllm",
+    "ollama>=0.6.1",
+    "openai>=1.30.0",
+    "uvicorn>=0.40.0",
+    "python-dotenv>=1.0.0",
+    "dateparser>=1.2.0",
+    "datasets>=4.0.0",
+    "pip>=25.2",
+    "qwen-tts",
+    "sentencepiece>=0.2.0",
+    "mcp>=1.7.0",
+    "ova-sdk",
+    "onnxruntime-gpu",
+    "cuda-python>=13.1.1",
+    "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.11/flash_attn-2.8.3%2Bcu131torch2.9-cp313-cp313-linux_x86_64.whl",
+]
+
+[tool.uv]
+override-dependencies = [
+    "nvidia-cudnn-cu13>=9.13.0",
+    "transformers==4.57.6",
+    "vllm>=0.14.1",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "ort-cuda-13-nightly"
+url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchaudio = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
+vllm = { url = "https://github.com/vllm-project/vllm/releases/download/v0.14.1/vllm-0.14.1%2Bcu130-cp38-abi3-manylinux_2_35_x86_64.whl" }
+qwen-tts = { git = "https://github.com/rekuenkdr/Qwen3-TTS-streaming.git", rev = "65a29b4486845b4685cdebae3e83eb9482c3eafe" }
+ova-sdk = { git = "https://github.com/rekuenkdr/ova-python-sdk.git" }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

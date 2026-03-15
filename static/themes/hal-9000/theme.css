@@ -1,0 +1,709 @@
+/* HAL-9000 Theme — "I'm sorry, Dave. I'm afraid I can't do that." */
+/* Faithful recreation of the iconic eye from 2001: A Space Odyssey */
+/* Chrome bezel. Glass dome. The unblinking red glow in the void. */
+
+:root {
+  /* Background — the void of space */
+  --bg-primary: #000000;
+  --bg-secondary: #161212;
+  --bg-tertiary: #1e1818;
+  --bg-surface: rgba(22, 18, 18, 0.96);
+  --bg-glass: rgba(22, 18, 18, 0.88);
+
+  /* Text — cold, clinical readouts */
+  --text-primary: #c8c2c0;
+  --text-secondary: #7a7272;
+  --text-muted: rgba(122, 114, 114, 0.6);
+
+  /* Accent — HAL's crimson */
+  --accent-primary: #d42020;
+  --accent-secondary: #ff3a3a;
+  --accent-glow: rgba(212, 32, 32, 0.4);
+  --accent-subtle: rgba(212, 32, 32, 0.1);
+
+  /* Status — all through HAL's red-amber palette */
+  --success: #d42020;
+  --success-glow: rgba(212, 32, 32, 0.35);
+  --danger: #ff2020;
+  --danger-glow: rgba(255, 32, 32, 0.4);
+  --warning: #cc6a00;
+  --processing: #cc6a00;
+  --processing-glow: rgba(204, 106, 0, 0.35);
+
+  /* Shadows */
+  --shadow-color: rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 30px rgba(212, 32, 32, 0.2);
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-hard: 0 8px 32px rgba(0, 0, 0, 0.7);
+
+  /* Glass morphism — dark, blood-tinted */
+  --glass-border: rgba(212, 32, 32, 0.12);
+  --glass-highlight: rgba(212, 32, 32, 0.02);
+
+  /* Grid — disabled, replaced by crosshatch */
+  --grid-color: transparent;
+  --grid-line: transparent;
+
+  /* Button */
+  --btn-bg: linear-gradient(145deg, #1a1212, #100a0a);
+  --btn-shadow: 8px 8px 20px rgba(0, 0, 0, 0.6), -4px -4px 12px rgba(20, 12, 12, 0.25);
+  --btn-shadow-inset: inset 6px 6px 12px rgba(0, 0, 0, 0.4), inset -4px -4px 10px rgba(20, 12, 12, 0.15);
+
+  /* Rings — disabled, replaced by the eye */
+  --holo-ring: transparent;
+  --holo-ring-danger: transparent;
+  --holo-ring-processing: transparent;
+  --holo-ring-success: transparent;
+
+  /* Input fields */
+  --input-bg: rgba(0, 0, 0, 0.92);
+  --input-border: rgba(212, 32, 32, 0.18);
+  --input-focus: rgba(212, 32, 32, 0.3);
+}
+
+/* ═══════════════════════════════════════
+   BACKGROUND — The Void
+   Dark crosshatch mesh like the real prop
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] body {
+  background: #000000;
+}
+
+/* Crosshatch mesh texture (faithful to prop) */
+[data-theme="hal-9000"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.012) 2px,
+      rgba(255, 255, 255, 0.012) 3px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.012) 2px,
+      rgba(255, 255, 255, 0.012) 3px
+    );
+  pointer-events: none;
+  z-index: -2;
+  animation: none;
+}
+
+/* Subtle red vignette — HAL is always watching */
+[data-theme="hal-9000"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 50% at 50% 45%, rgba(255, 40, 20, 0.035) 0%, transparent 55%),
+    radial-gradient(ellipse 120% 120% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.3) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* ═══════════════════════════════════════
+   HIDE DEFAULT BUTTON ELEMENTS
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk .label,
+[data-theme="hal-9000"] .talk .sub,
+[data-theme="hal-9000"] .talk .icon,
+[data-theme="hal-9000"] .talk .wave {
+  display: none !important;
+}
+
+[data-theme="hal-9000"] .holo-ring,
+[data-theme="hal-9000"] .pulse-ring {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════
+   THE VOICE BUTTON — Invisible housing
+   SVG handles ALL visuals (bezel + dome)
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk {
+  --voice-size: min(240px, 60vw);
+  background: transparent;
+  border: none !important;
+  box-shadow: 0 0 80px rgba(255, 30, 10, 0.06);
+  backdrop-filter: none;
+  position: relative;
+  overflow: visible;
+}
+
+[data-theme="hal-9000"] .talk::before {
+  content: none;
+}
+
+[data-theme="hal-9000"] .talk::after {
+  display: none;
+}
+
+[data-theme="hal-9000"] .talk:hover {
+  transform: none;
+  box-shadow: 0 0 100px rgba(255, 30, 10, 0.09);
+}
+
+[data-theme="hal-9000"] .talk:active {
+  transform: scale(0.97);
+}
+
+[data-theme="hal-9000"] .talk:focus-visible {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════
+   HAL EYE SVG — Show and position
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .hal-eye {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ── Chrome Bezel ── */
+[data-theme="hal-9000"] .hal-bezel {
+  transition: filter 0.8s ease;
+}
+
+/* ── Glass Dome ── */
+[data-theme="hal-9000"] .hal-dome {
+  transition: opacity 0.6s ease;
+}
+
+/* ── Hot Core Glow ── */
+[data-theme="hal-9000"] .hal-core {
+  transition: opacity 0.6s ease, filter 0.6s ease;
+}
+
+/* ── The Pupil — HAL's Soul ── */
+[data-theme="hal-9000"] .hal-pupil {
+  transition: fill 0.6s ease, opacity 0.6s ease;
+}
+
+/* ── Ambient Red Glow ── */
+[data-theme="hal-9000"] .hal-ambient {
+  transition: fill 0.6s ease, opacity 0.6s ease;
+}
+
+/* ── Glass Specular Highlight ── */
+[data-theme="hal-9000"] .hal-specular {
+  transition: opacity 0.6s ease;
+}
+
+/* ═══════════════════════════════════════
+   IDLE STATE — "Good afternoon, Dave"
+   Slow, menacing pulse. Always watching.
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk.state-idle .hal-pupil {
+  animation: hal-idle-pupil 5s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-idle .hal-core {
+  animation: hal-idle-core 5s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-idle .hal-ambient {
+  animation: hal-idle-ambient 5s ease-in-out infinite;
+}
+
+@keyframes hal-idle-pupil {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+@keyframes hal-idle-core {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+@keyframes hal-idle-ambient {
+  0%, 100% { fill: rgba(255, 30, 10, 0.04); }
+  50% { fill: rgba(255, 30, 10, 0.08); }
+}
+
+/* ═══════════════════════════════════════
+   RECORDING STATE — "I can see you"
+   Brighter, faster, the eye intensifies.
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk.state-recording {
+  box-shadow:
+    0 0 60px rgba(255, 30, 10, 0.1),
+    0 0 120px rgba(255, 20, 10, 0.06) !important;
+}
+
+[data-theme="hal-9000"] .talk.state-recording .hal-pupil {
+  fill: #ff6644;
+  animation: hal-rec-pupil 1.2s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-recording .hal-core {
+  animation: hal-rec-core 1.2s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-recording .hal-ambient {
+  animation: hal-rec-ambient 1.2s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-recording .hal-bezel {
+  filter: brightness(1.1) drop-shadow(0 0 3px rgba(255, 60, 30, 0.1));
+}
+
+@keyframes hal-rec-pupil {
+  0%, 100% { opacity: 0.9; fill: #ff5533; }
+  50% { opacity: 1; fill: #ff7755; }
+}
+
+@keyframes hal-rec-core {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+@keyframes hal-rec-ambient {
+  0%, 100% { fill: rgba(255, 40, 15, 0.08); }
+  50% { fill: rgba(255, 50, 20, 0.14); }
+}
+
+/* ═══════════════════════════════════════
+   WAITING STATE — "Just a moment"
+   Amber shift. Processing. Thinking.
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk.state-waiting {
+  box-shadow:
+    0 0 60px rgba(204, 106, 0, 0.08),
+    0 0 120px rgba(204, 80, 0, 0.04) !important;
+}
+
+[data-theme="hal-9000"] .talk.state-waiting .hal-pupil {
+  fill: #ff8820;
+  animation: hal-wait-pupil 2.2s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-waiting .hal-core {
+  animation: hal-wait-core 2.2s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-waiting .hal-ambient {
+  animation: hal-wait-ambient 2.2s ease-in-out infinite;
+}
+
+@keyframes hal-wait-pupil {
+  0%, 100% { opacity: 0.8; fill: #ff7718; }
+  50% { opacity: 1; fill: #ff9933; }
+}
+
+@keyframes hal-wait-core {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes hal-wait-ambient {
+  0%, 100% { fill: rgba(204, 106, 0, 0.04); }
+  50% { fill: rgba(220, 120, 10, 0.1); }
+}
+
+/* ═══════════════════════════════════════
+   PLAYING STATE — "I am fully operational"
+   Maximum intensity. The eye blazes.
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk.state-playing {
+  box-shadow:
+    0 0 80px rgba(255, 30, 10, 0.14),
+    0 0 150px rgba(255, 20, 10, 0.07) !important;
+}
+
+[data-theme="hal-9000"] .talk.state-playing .hal-pupil {
+  fill: #ff6644;
+  animation: hal-play-pupil 1.8s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-playing .hal-core {
+  animation: hal-play-core 1.8s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-playing .hal-ambient {
+  animation: hal-play-ambient 1.8s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-playing .hal-bezel {
+  filter: brightness(1.15) drop-shadow(0 0 4px rgba(255, 50, 25, 0.12));
+}
+
+@keyframes hal-play-pupil {
+  0%, 100% { opacity: 0.95; fill: #ff5533; }
+  50% { opacity: 1; fill: #ff7755; }
+}
+
+@keyframes hal-play-core {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+@keyframes hal-play-ambient {
+  0%, 100% { fill: rgba(255, 40, 15, 0.07); }
+  50% { fill: rgba(255, 50, 20, 0.14); }
+}
+
+/* ═══════════════════════════════════════
+   RESTART STATE — "I'm afraid I can't do that"
+   Warning flash. The eye pulses urgently.
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .talk.state-restart {
+  box-shadow:
+    0 0 70px rgba(255, 0, 0, 0.12),
+    0 0 130px rgba(255, 0, 0, 0.06) !important;
+}
+
+[data-theme="hal-9000"] .talk.state-restart .hal-pupil {
+  fill: #ff2200;
+  animation: hal-restart-pupil 0.9s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-restart .hal-core {
+  animation: hal-restart-core 0.9s ease-in-out infinite;
+}
+
+[data-theme="hal-9000"] .talk.state-restart .hal-ambient {
+  fill: rgba(255, 0, 0, 0.1);
+  animation: hal-restart-ambient 0.9s ease-in-out infinite;
+}
+
+@keyframes hal-restart-pupil {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes hal-restart-core {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes hal-restart-ambient {
+  0%, 100% { fill: rgba(255, 0, 0, 0.1); }
+  50% { fill: rgba(255, 0, 0, 0.03); }
+}
+
+/* ═══════════════════════════════════════
+   UI ELEMENTS
+   Dark, clinical, red-accented
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .settings-overlay {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+[data-theme="hal-9000"] .action-btn {
+  background: rgba(212, 32, 32, 0.04);
+  border-color: rgba(212, 32, 32, 0.1);
+}
+
+[data-theme="hal-9000"] .action-btn:hover {
+  background: rgba(212, 32, 32, 0.08);
+  border-color: rgba(212, 32, 32, 0.22);
+  box-shadow: 0 0 15px rgba(212, 32, 32, 0.08);
+}
+
+[data-theme="hal-9000"] .action-btn svg {
+  color: rgba(200, 194, 192, 0.5);
+}
+
+[data-theme="hal-9000"] .action-btn:hover svg {
+  color: #d42020;
+}
+
+[data-theme="hal-9000"] .text-input {
+  background: rgba(0, 0, 0, 0.92);
+  border-color: rgba(212, 32, 32, 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="hal-9000"] .text-input::placeholder {
+  color: rgba(122, 114, 114, 0.45);
+}
+
+[data-theme="hal-9000"] .text-input:focus {
+  border-color: rgba(212, 32, 32, 0.28);
+  box-shadow: 0 0 0 3px rgba(212, 32, 32, 0.06), 0 0 20px rgba(212, 32, 32, 0.04);
+}
+
+[data-theme="hal-9000"] .settings-btn,
+[data-theme="hal-9000"] .theme-btn {
+  background: rgba(20, 14, 14, 0.85);
+  border-color: rgba(212, 32, 32, 0.08);
+}
+
+[data-theme="hal-9000"] .settings-btn:hover,
+[data-theme="hal-9000"] .theme-btn:hover {
+  background: rgba(212, 32, 32, 0.06);
+  border-color: rgba(212, 32, 32, 0.2);
+  box-shadow: 0 0 18px rgba(212, 32, 32, 0.08);
+}
+
+[data-theme="hal-9000"] .settings-btn svg,
+[data-theme="hal-9000"] .theme-btn svg {
+  color: rgba(200, 194, 192, 0.5);
+}
+
+[data-theme="hal-9000"] .settings-btn:hover svg,
+[data-theme="hal-9000"] .theme-btn:hover svg {
+  color: #d42020;
+}
+
+[data-theme="hal-9000"] .divider {
+  color: rgba(122, 114, 114, 0.35);
+}
+
+[data-theme="hal-9000"] .divider::before,
+[data-theme="hal-9000"] .divider::after {
+  background: linear-gradient(90deg, transparent, rgba(212, 32, 32, 0.08), transparent);
+}
+
+/* ═══════════════════════════════════════
+   SETTINGS PANEL — Discovery One Interface
+   Dark hull panels with subtle scan-line texture
+   and faint red instrument glow
+   ═══════════════════════════════════════ */
+
+/* Panel body — dark hull with scan-line texture */
+[data-theme="hal-9000"] .settings-panel {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent,
+      transparent 1px,
+      rgba(255, 255, 255, 0.008) 1px,
+      rgba(255, 255, 255, 0.008) 2px
+    ),
+    linear-gradient(180deg, #0a0808 0%, #060404 100%);
+  border-right: 1px solid rgba(212, 32, 32, 0.08);
+  backdrop-filter: none;
+}
+
+/* Header */
+[data-theme="hal-9000"] .settings-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(212, 32, 32, 0.06);
+}
+
+/* Content area — transparent over panel bg */
+[data-theme="hal-9000"] .settings-content {
+  background: transparent;
+}
+
+/* Section group titles — dim instrument labels */
+[data-theme="hal-9000"] .setting-group-title {
+  color: #555;
+  text-shadow: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  padding-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 11px;
+}
+
+/* Labels */
+[data-theme="hal-9000"] .setting-label {
+  color: #888;
+}
+
+/* Inputs — flat dark fields */
+[data-theme="hal-9000"] .setting-select {
+  background-color: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  color: #888;
+  box-shadow: none;
+}
+
+[data-theme="hal-9000"] .setting-select:focus {
+  border-color: rgba(212, 32, 32, 0.25);
+  box-shadow: 0 0 0 2px rgba(212, 32, 32, 0.06);
+}
+
+[data-theme="hal-9000"] .setting-textarea {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  color: #888;
+  box-shadow: none;
+}
+
+[data-theme="hal-9000"] .setting-textarea:focus {
+  border-color: rgba(212, 32, 32, 0.25);
+  box-shadow: 0 0 0 2px rgba(212, 32, 32, 0.06);
+}
+
+/* Hint text */
+[data-theme="hal-9000"] .setting-hint {
+  color: #444;
+}
+
+/* Toggle switch — flat dark */
+[data-theme="hal-9000"] .toggle-track {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+[data-theme="hal-9000"] .toggle-thumb {
+  background: #444;
+  box-shadow: none;
+}
+
+[data-theme="hal-9000"] .setting-toggle input:checked + .toggle-track {
+  background: rgba(180, 24, 24, 0.3);
+  border-color: rgba(212, 32, 32, 0.4);
+}
+
+[data-theme="hal-9000"] .setting-toggle input:checked + .toggle-track .toggle-thumb {
+  background: linear-gradient(180deg, #d42020, #901010);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 100, 100, 0.3),
+    0 0 8px rgba(212, 32, 32, 0.3);
+}
+
+[data-theme="hal-9000"] .toggle-label {
+  color: #888;
+}
+
+/* Restart notice */
+[data-theme="hal-9000"] .restart-notice {
+  background: rgba(212, 32, 32, 0.05);
+  border-color: rgba(212, 32, 32, 0.12);
+}
+
+/* Footer — seamless dark with subtle top rule */
+[data-theme="hal-9000"] .settings-footer {
+  background: transparent;
+  border-top: 1px solid rgba(212, 32, 32, 0.06);
+}
+
+/* Buttons — flat instrument panel style */
+[data-theme="hal-9000"] .btn-primary {
+  background: rgba(212, 32, 32, 0.12);
+  border: 1px solid rgba(212, 32, 32, 0.3);
+  color: #e84040;
+  box-shadow: 0 0 12px rgba(212, 32, 32, 0.06);
+  text-shadow: 0 0 8px rgba(212, 32, 32, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+[data-theme="hal-9000"] .btn-primary:hover {
+  background: rgba(212, 32, 32, 0.2);
+  border-color: rgba(212, 32, 32, 0.5);
+  color: #ff5050;
+  box-shadow: 0 0 20px rgba(212, 32, 32, 0.12), inset 0 0 12px rgba(212, 32, 32, 0.06);
+  transform: none;
+}
+
+[data-theme="hal-9000"] .btn-secondary {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #666;
+  box-shadow: none;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+[data-theme="hal-9000"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #999;
+}
+
+/* Theme toggle buttons — flat panel */
+[data-theme="hal-9000"] .theme-toggle-btn {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #555;
+  box-shadow: none;
+}
+
+[data-theme="hal-9000"] .theme-toggle-btn:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #888;
+}
+
+[data-theme="hal-9000"] .theme-toggle-btn.active,
+[data-theme="hal-9000"] .theme-toggle-btn[data-theme="hal-9000"].active {
+  background: rgba(212, 32, 32, 0.08);
+  border-color: rgba(212, 32, 32, 0.25);
+  color: #d42020;
+  box-shadow: 0 0 8px rgba(212, 32, 32, 0.06);
+}
+
+/* ═══════════════════════════════════════
+   SCROLLBAR — Dark metal
+   ═══════════════════════════════════════ */
+@supports (-webkit-appearance: none) {
+  [data-theme="hal-9000"] ::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  [data-theme="hal-9000"] ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+
+  [data-theme="hal-9000"] ::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+    border-radius: 3px;
+  }
+
+  [data-theme="hal-9000"] ::-webkit-scrollbar-thumb:hover {
+    background: #444;
+  }
+}
+
+/* ═══════════════════════════════════════
+   RESTART PROGRESS BAR
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .restart-progress {
+  background: linear-gradient(90deg, #c01818, #ff3a3a);
+  box-shadow: 0 0 12px rgba(212, 32, 32, 0.4);
+}
+
+/* ═══════════════════════════════════════
+   GLOW ELEMENTS
+   ═══════════════════════════════════════ */
+[data-theme="hal-9000"] .glow-accent {
+  box-shadow: 0 0 20px rgba(212, 32, 32, 0.25), 0 0 40px rgba(212, 32, 32, 0.1);
+}
+
+[data-theme="hal-9000"] .glow-text {
+  text-shadow: 0 0 10px rgba(212, 32, 32, 0.35), 0 0 20px rgba(212, 32, 32, 0.15);
+}
+
+/* ═══════════════════════════════════════
+   MOBILE
+   ═══════════════════════════════════════ */
+@media (max-width: 480px) {
+  [data-theme="hal-9000"] .talk {
+    --voice-size: min(220px, 56vw);
+  }
+
+  [data-theme="hal-9000"] .text-input:not(:focus) {
+    animation: hal-input-glow 5s ease-in-out infinite;
+  }
+
+  @keyframes hal-input-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(212, 32, 32, 0.08); }
+    50% { box-shadow: 0 0 6px 1px rgba(212, 32, 32, 0.04); }
+  }
+
+}
