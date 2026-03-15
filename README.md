@@ -64,7 +64,7 @@ The defaults .env. examples will work for most setups. The common things to chan
 | Variable | Default | What to change |
 |----------|---------|----------------|
 | `OVA_LANGUAGE` | `es` | Your language (`en`, `de`, `fr`, `ja`, etc.) |
-| `OVA_QWEN3_VOICE` | `myvoice` | Voice profile (see [Voice Profiles](#voice-profiles) below) |
+| `OVA_QWEN3_VOICE` | `myvoice` | Voice profile (see [generate_voice_prompts script](https://github.com/rekuenkdr/ova/tree/main/scripts#generate_voice_promptspy) ) |
 | `OVA_LLM_PROVIDER` | `ollama` | Set to `openai` for OpenAI-compatible APIs |
 
 > See [Configuration](#configuration) for the full list of settings.
