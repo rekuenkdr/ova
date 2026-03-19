@@ -1,6 +1,6 @@
 # Quick Start
 
-Minimal `.env` to get running. See [VARIABLES.md](VARIABLES.md) for the full reference.
+Minimal `.env` to get running. See [VARIABLES.md](VARIABLES.md) for the full reference and [README.md](README.md) for the full feature list.
 
 ---
 

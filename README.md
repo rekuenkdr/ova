@@ -7,21 +7,21 @@ A **fully-local** AI voice assistant with real-time streaming TTS, voice cloning
 
 ## Features
 
-- **[Real-time PCM streaming TTS](#streaming-modes)** - Low-latency audio with Web Audio API AudioWorklet
-- **[Streaming ASR](#streaming-asr-websocket-v1speech-to-textstream)** - Real-time transcription via WebSocket as you speak
+- **[Real-time PCM streaming TTS](#streaming-tts)** - Low-latency audio with Web Audio API AudioWorklet
+- **[Streaming ASR](#api-endpoints)** - Real-time transcription via WebSocket as you speak
 - **[Voice cloning](#qwen3-voice-profiles)** - Clone any voice from a 5-15 second audio sample
-- **[Two-phase streaming](#streaming-tuning-advanced)** - Aggressive first chunk for lower TTFB, then stable quality
+- **[Two-phase streaming](#streaming-tts)** - Aggressive first chunk for lower TTFB, then stable quality
 - **[Early TTS decode](#why-the-first-sentence-matters-for-ttfb)** - Interleaved LLM→TTS for faster time-to-first-byte (~200-300ms reduction)
 - **[Hot-reload](#hot-reload-settings)** - Switch voice/language without restart
 - **Multi-language support** - 10 languages: zh, en, ja, ko, de, fr, ru, pt, es, it
 - **[Multimodal input](#multimodal-image--text)** - Attach images to chat queries for vision-language responses
 - **[Barge-in](#barge-in--wake-word)** - Interrupt TTS playback by speaking (Silero VAD speech detection)
 - **[Wake word](#barge-in--wake-word)** - Always-on "Hey Nova" detection with VAD-gated streaming ASR
-- **[Prosody control](#prosody-silence-tags--optional)** - `[pause:X]` tags for deliberate silences in speech
+- **[Prosody control](#prosody-silence-tags)** - `[pause:X]` tags for deliberate silences in speech
 - **[Tool calling](#tools--function-calling)** - LLM can invoke real Python functions (timers, datetime, web search) with real-time push notifications via SSE
-- **[MCP client](#mcp-external-tool-servers---experimental)** - Connect to external [MCP](https://modelcontextprotocol.io/) servers for additional tool capabilities (filesystem, databases, APIs) without writing code
+- **[MCP client](#mcp-external-tool-servers)** - Connect to external [MCP](https://modelcontextprotocol.io/) servers for additional tool capabilities (filesystem, databases, APIs) without writing code
 - **[Themes](static/README.md#theming-system)** - Dark, Light, Her (Samantha), and HAL-9000
-- **[torch.compile optimizations](#streaming-modes)** - Up to 1.7x speedup after JIT warmup
+- **[torch.compile optimizations](#streaming-tts)** - Up to 1.7x speedup after JIT warmup
 
 ## Quick Start
 
@@ -66,7 +66,7 @@ The defaults .env. examples will work for most setups. The common things to chan
 | `OVA_QWEN3_VOICE` | `myvoice` | Voice profile (see [generate_voice_prompts script](https://github.com/rekuenkdr/ova/tree/main/scripts#generate_voice_promptspy) ) |
 | `OVA_LLM_PROVIDER` | `ollama` | Set to `openai` for OpenAI-compatible APIs |
 
-> See [Configuration](#configuration) for the full list of settings.
+> See [VARIABLES.md](VARIABLES.md) for the full configuration reference.
 
 ## Models
 
@@ -88,8 +88,7 @@ This project uses a custom fork of Qwen3-TTS with streaming optimizations:
 
 Key improvements over upstream:
 - **Two-phase streaming** - Aggressive first chunk settings for lower TTFB, then stable settings for quality
-- **Hann window crossfading** - Smooth audio chunk transitions handled internally by the TTS engine
-- **Overlap removal** - Proper deduplication at chunk boundaries (no more audio stuttering)
+- **torch.compile optimizations** - Up to 1.7x speedup after JIT warmup
 
 
 ## Architecture
@@ -122,92 +121,15 @@ The ASR subprocess uses Unix socket IPC (not multiprocessing.Pipe) to avoid vLLM
    - **Two-phase streaming**: Aggressive first chunk settings, then stable streaming
 3. Frontend plays audio as it arrives using an AudioWorklet processor
 
-On an RTX 5060Ti (16GB VRAM), with Qwen3-TTS streaming optimizations enabled, TTFB is ~785ms after warmup with the 1.7B Model.
+On an RTX 5060Ti (16GB VRAM), with Qwen3-TTS streaming optimizations enabled, TTFB is ~620ms after warmup with the 1.7B Model.
 
-## Configuration
+## Streaming TTS
 
-### Key Settings
+OVA supports two streaming formats: **PCM** (lower latency, WAV header + raw chunks with AudioWorklet) and **WAV** (each chunk is a complete WAV file). PCM mode uses `reduce-overhead` torch.compile for ~1.5-1.7x speedup. The frontend pre-buffers ~0.4 seconds before playback to ensure smooth audio.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OVA_DEBUG` | Enable verbose logging for all components | `false` |
-| `OVA_LANGUAGE` | Language code (zh, en, ja, ko, de, fr, ru, pt, es, it) | `es` |
-| `OVA_LLM_PROVIDER` | LLM backend: `ollama` or `openai` (any OpenAI-compatible server) | `ollama` |
-| `OVA_TTS_ENGINE` | TTS engine: `qwen3` (voice clone) or `kokoro` | `qwen3` |
-| `OVA_QWEN3_VOICE` | Voice profile name (see Voice Profiles) | `myvoice` |
-| `OVA_QWEN3_STREAM_FORMAT` | Streaming format: `pcm` or `wav` | `pcm` |
-| `OVA_ENABLE_STREAMING_OPTIMIZATIONS` | Enable torch.compile | `true` |
-| `OVA_EARLY_TTS_DECODE` | Start TTS before full LLM response | `true` |
-| `OVA_KOKORO_VOICE` | Kokoro voice preset | `af_heart` |
-| `OVA_KOKORO_MODEL` | Kokoro model ID | `hexgrad/Kokoro-82M` |
+**Two-phase streaming** uses aggressive settings for the first chunk (lower TTFB) then switches to stable settings for quality. The pipeline also includes runtime audio quality assertions (overlap detection, RMS continuity) that log warnings for debugging.
 
-### LLM Provider (OpenAI-Compatible)
-
-When using `OVA_LLM_PROVIDER=openai`, the pipeline connects to any OpenAI-compatible API — whether local (vLLM, TensorRT-LLM, LMStudio, llama.cpp) or remote (OpenAI, Mistral, Together AI, etc.) — instead of Ollama. Tool calling, streaming, and all chat features work across both providers.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OVA_LLM_PROVIDER` | LLM backend: `ollama` or `openai` | `ollama` |
-| `OVA_CHAT_MODEL` | Model name (used by both providers) | `ministral-3:3b-instruct-2512-q4_K_M` |
-| `OVA_LLM_BASE_URL` | Base URL for the OpenAI-compatible API | `http://localhost:8000/v1` |
-| `OVA_LLM_API_KEY` | API key (use `not-needed` for local servers without auth) | `not-needed` |
-
-### Streaming Modes
-
-| Mode | Latency | Description |
-|------|---------|-------------|
-| `pcm` | Lower | WAV header + raw PCM chunks. True streaming with AudioWorklet. |
-| `wav` | Higher | Each chunk is a complete WAV file. |
-
-PCM mode uses `reduce-overhead` torch.compile for ~1.5-1.7x speedup. The frontend pre-buffers ~0.4 seconds before playback to ensure smooth audio.
-
-#### Audio Quality Validation
-
-The pipeline includes runtime assertions to detect streaming issues:
-
-- **Overlap detection**: Checks for duplicate audio at chunk boundaries (correlation > 0.85)
-- **RMS continuity**: Detects sudden volume jumps between chunks (ratio > 3.0)
-
-These log warnings but don't interrupt playback - useful for debugging voice quality issues.
-
-### Streaming Tuning (Advanced)
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OVA_PCM_EMIT_EVERY_FRAMES` | TTS emit frequency (lower = more chunks) | `12` |
-| `OVA_PCM_PREBUFFER_SAMPLES` | Pre-buffer before playback (samples) | `9600` |
-| `OVA_FIRST_CHUNK_EMIT_EVERY` | Aggressive emit interval for first chunk (0 to disable) | `5` |
-| `OVA_FIRST_CHUNK_DECODE_WINDOW` | Decode window for first chunk phase | `48` |
-| `OVA_FIRST_CHUNK_FRAMES` | Frames before switching to stable settings | `48` |
-
-### Model-Specific Settings (Qwen3-TTS)
-
-These values depend on which TTS model size you're using:
-
-| Setting | 0.6B Model | 1.7B Model |
-|---------|------------|------------|
-| `OVA_PCM_DECODE_WINDOW` | `64` | `80` |
-| `OVA_MAX_TTS_FRAMES` | `1500` | `8000` |
-| `OVA_LLM_MAX_TOKENS` | `300` | `0` (unlimited) |
-
-- **PCM_DECODE_WINDOW**: Decode window size for steady-state streaming
-- **MAX_TTS_FRAMES**: Prevents runaway TTS generation (8000 ≈ 11 min at 12Hz)
-- **LLM_MAX_TOKENS**: Limits LLM output to match TTS capacity
-
-### ASR Settings
-
-ASR runs embedded in the backend as an isolated subprocess (no separate server).
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OVA_ASR_MODEL` | ASR model ID | `Qwen/Qwen3-ASR-0.6B` |
-| `OVA_ASR_GPU_MEMORY_UTILIZATION` | GPU memory fraction for ASR | `0.4` |
-| `OVA_ASR_MAX_MODEL_LEN` | Max sequence length | `2048` |
-| `OVA_ASR_CHUNK_SIZE_SEC` | Audio chunk duration for streaming | `0.5` |
-| `OVA_ASR_UNFIXED_CHUNK_NUM` | First N chunks without prefix prompting | `4` |
-| `OVA_ASR_UNFIXED_TOKEN_NUM` | Token rollback for stability | `5` |
-
-> **Note:** See [`.env.example`](.env.example) for the complete list of configuration variables with detailed descriptions.
+> See [VARIABLES.md](VARIABLES.md) for all streaming tuning parameters (`OVA_PCM_*`, `OVA_FIRST_CHUNK_*`).
 
 ## Qwen3 Voice Profiles
 
@@ -289,23 +211,11 @@ Instructions:
 
 ### Why the First Sentence Matters for TTFB
 
-With `OVA_EARLY_TTS_DECODE=true` (the default), the backend starts TTS **before** the full LLM response is ready. It watches the token stream and kicks off audio synthesis as soon as a gating condition is met:
+With `OVA_EARLY_TTS_DECODE=true` (the default), the backend starts TTS **before** the full LLM response is ready. It watches the token stream and triggers audio synthesis on the first sentence boundary (`.` `?` `!`), buffer reaching ~40 characters, or 12 tokens — whichever comes first.
 
-| Trigger | Condition |
-|---------|-----------|
-| Sentence boundary | Token contains `.` `?` `!` or `\n` |
-| Buffer size | Accumulated text >= 40 characters |
-| Token count | >= 12 tokens received |
-| Pause tag | `[pause:X]` detected in buffer |
-
-The instruction *"answer the first sentence clearly before continuing"* causes the LLM to produce a short opening sentence with punctuation early, which triggers TTS sooner:
-
-- **Fast**: `"Sure thing!"` — 11 chars, hits `!` immediately, TTS kicks off
-- **Slow**: `"Well, I think that if we consider the various aspects of..."` — 55+ chars, no sentence-ending punctuation, waits for the 40-char or 12-token fallback
+The instruction *"answer the first sentence clearly before continuing"* causes the LLM to produce a short opening sentence with punctuation early, triggering TTS sooner. For example, `"Sure thing!"` triggers immediately, while a long rambling sentence waits for fallback thresholds.
 
 ### Key Prompt Guidelines
-
-Each rule exists for a TTS-specific reason:
 
 | Rule | Why |
 |------|-----|
@@ -315,53 +225,19 @@ Each rule exists for a TTS-specific reason:
 | Punctuation for rhythm | Commas, ellipsis, and dashes directly control TTS prosody and pacing |
 | Complete sentences | Produces natural speech flow instead of fragmented phrases |
 
-### Default Prompts
-
 If a profile directory doesn't contain a `prompt.txt`, the system falls back to `prompts/<language>/default.txt`. You can reload the active prompt at runtime via the settings panel without restarting.
 
-## Prosody (Silence Tags) — Optional
+## Prosody (Silence Tags)
 
-OVA supports optional `[pause:X]` tags that let the LLM insert deliberate silences into speech. This works without any code changes — it's purely controlled by the prompt.
-
-### Syntax
-
-```
-[pause:X]   # Full form — X is seconds (e.g., [pause:0.5], [pause:1.5])
-[p:X]       # Short form — same behavior
-```
-
-### Enabling
-
-Add this line to a profile's `prompt.txt` instructions:
+OVA supports `[pause:X]` tags that let the LLM insert deliberate silences into speech. This is purely prompt-controlled — add the instruction line to a profile's `prompt.txt` to enable it:
 
 ```
 - You may use [pause:X] to insert a deliberate pause of X seconds (e.g., [pause:0.5]). Use sparingly for dramatic effect.
 ```
 
-Without this line, the LLM won't produce the tags and the feature stays inactive.
+**Syntax:** `[pause:X]` or `[p:X]` where X is seconds (e.g., `[pause:0.5]`, `[p:1.5]`).
 
-### How It Works
-
-When the LLM outputs text with embedded tags, the pipeline splits it into segments:
-
-```
-LLM output:  "Hello there. [pause:0.5] How are you?"
-
-Parsed as:
-  1. TextSegment("Hello there.")     → TTS synthesizes speech
-  2. PauseSegment(0.5s)              → Zero-amplitude PCM samples injected
-  3. TextSegment("How are you?")     → TTS synthesizes speech
-```
-
-The user hears: *"Hello there."* — half-second silence — *"How are you?"*
-
-Tags are stripped from conversation history after processing so they don't accumulate in the LLM context window.
-
-### Limits and Constraints
-
-- **Max duration**: Pauses are clamped to `OVA_MAX_PAUSE_DURATION` (default 3.0 seconds)
-- **Requires**: Qwen3 TTS engine with PCM streaming mode (the default configuration)
-- **Interleaved mode**: Pause tags also act as gating triggers for early TTS decode, with the same priority as sentence boundaries
+When the LLM outputs text with embedded tags, the pipeline splits it into text and silence segments. Tags are stripped from conversation history after processing. Pauses are clamped to `OVA_MAX_PAUSE_DURATION` (default 3.0 seconds). Requires Qwen3 TTS with PCM streaming (the default).
 
 ## Multimodal (Image + Text)
 
@@ -377,72 +253,21 @@ The `/v1/chat` endpoint handles text + optional image queries directly.
 
 ### Voice Activity Detection (Silero VAD)
 
-OVA uses [Silero VAD v6](https://github.com/snakers4/silero-vad) running client-side via ONNX Runtime Web for real-time speech detection. The model runs in the browser at 32ms frame intervals with no server round-trips.
-
-- **Primary**: Silero VAD ONNX model (`models/silero_vad_16k_op15.onnx`) — neural speech/noise discrimination
-- **Fallback**: RMS energy detection if the ONNX model fails to load
-- **Speech onset**: Sliding window confirmation ("N out of M frames above threshold") to tolerate natural dips between syllables
-- **Silence detection**: Consecutive frames below threshold
-
-[ONNX Runtime Web](https://www.npmjs.com/package/onnxruntime-web) is loaded from [jsDelivr CDN](https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js). The Silero ONNX model file is served locally.
+OVA uses [Silero VAD v6](https://github.com/snakers4/silero-vad) running client-side via ONNX Runtime Web for real-time speech detection. The model runs in the browser at 32ms frame intervals with no server round-trips. Falls back to RMS energy detection if the ONNX model fails to load.
 
 ### Barge-In
 
-When enabled (`OVA_ENABLE_BARGE_IN=true`), the user can interrupt TTS playback by speaking. VAD monitors the microphone during playback and triggers an interrupt when speech is confirmed:
-
-1. TTS playback starts → grace period delays VAD activation (`OVA_BARGE_IN_GRACE_MS`)
-2. User speaks → VAD confirms speech (`OVA_VAD_CONFIRM_FRAMES` consecutive frames) → playback stops, server notified via `/v1/interrupt`
-3. Recording starts automatically with auto-send (sends when user stops talking)
-4. Backchannel filtering (`OVA_BACKCHANNEL_FILTER`): brief filler words ("yeah", "ok", "mmm") during barge-in are discarded, not sent to LLM
-5. Cooldown period prevents false-positive loops after auto-send
+When enabled (`OVA_ENABLE_BARGE_IN=true`, the default), the user can interrupt TTS playback by speaking. VAD monitors the microphone during playback and triggers an interrupt when speech is confirmed. After a grace period (`OVA_BARGE_IN_GRACE_MS`), confirmed speech stops playback and starts recording with auto-send. Backchannel filtering (`OVA_BACKCHANNEL_FILTER`) can discard filler words like "yeah" or "ok" during barge-in.
 
 ### Wake Word
 
-When enabled (`OVA_ENABLE_WAKE_WORD=true`), the assistant listens continuously for a configurable phrase (default: "hey nova") to start recording hands-free:
+When enabled (`OVA_ENABLE_WAKE_WORD=true`), the assistant listens continuously for a configurable phrase (default: "hey nova") to start recording hands-free. The mic is acquired eagerly on page load. VAD monitors for speech onset (low CPU — no ASR until speech detected), then streaming ASR checks partial transcripts against the wake phrase. A pre-speech ring buffer (~500ms) captures audio before VAD triggers to avoid clipping.
 
-1. Mic is acquired eagerly on page load
-2. VAD monitors for speech onset (low CPU — no ASR until speech detected)
-3. Speech detected → streaming ASR WebSocket opens (forced to English for reliable wake word matching)
-4. ASR partial transcripts are checked against the wake phrase
-5. Match found → recording starts automatically
-
-A pre-speech ring buffer (~500ms) captures audio before VAD triggers, ensuring the wake phrase isn't clipped when sent to ASR.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OVA_ENABLE_BARGE_IN` | `true` | Enable barge-in during playback |
-| `OVA_VAD_THRESHOLD` | `0.5` | Silero VAD detection threshold (0.0-1.0) |
-| `OVA_AUTO_SEND_SILENCE_MS` | `1200` | Silence duration to trigger auto-send (ms) |
-| `OVA_AUTO_SEND_CONFIRM_MS` | `128` | Speech confirmation before arming auto-send (ms) |
-| `OVA_AUTO_SEND_TIMEOUT_MS` | `3000` | Cancel recording if no speech detected (ms) |
-| `OVA_BARGE_IN_COOLDOWN_MS` | `1200` | Suppress barge-in after auto-send (ms) |
-| `OVA_VAD_CONFIRM_FRAMES` | `2` | Consecutive Silero frames (~32ms each) to confirm speech |
-| `OVA_BARGE_IN_GRACE_MS` | `500` | Delay VAD activation after playback starts (ms) |
-| `OVA_BACKCHANNEL_FILTER` | `false` | Discard filler words (yeah, ok, mmm) during barge-in |
-| `OVA_ENABLE_WAKE_WORD` | `false` | Enable always-on wake word listening |
-| `OVA_WAKE_WORD` | `hey nova` | Wake word phrase |
+> See [VARIABLES.md](VARIABLES.md) for all barge-in and wake word settings (`OVA_ENABLE_BARGE_IN`, `OVA_VAD_*`, `OVA_AUTO_SEND_*`, `OVA_BARGE_IN_*`, `OVA_WAKE_WORD`).
 
 ## Tools / Function Calling
 
-The LLM can invoke real Python functions during a conversation and incorporate the results into its spoken response. For example, the user asks *"What time is it?"* and the LLM calls `get_time`, receives the result, and speaks the answer naturally.
-
-Tools are **plugin-style** — drop a `.py` file in `ova/tools/` and the registry auto-discovers it. No manual registration needed.
-
-Enabling tools increases the TTFA due to the LLM tool iterations. 
-
-### Enabling
-
-Set in `.env` and restart:
-
-```ini
-OVA_ENABLE_TOOLS=true
-```
-
-Verify via the info endpoint:
-
-```bash
-curl http://localhost:5173/v1/info | jq '{tools_enabled, tools_available}'
-```
+The LLM can invoke real Python functions during a conversation and incorporate the results into its spoken response. Tools are **plugin-style** — drop a `.py` file in `ova/tools/` and the registry auto-discovers it. No manual registration needed.
 
 ### Built-in Tools
 
@@ -454,45 +279,17 @@ curl http://localhost:5173/v1/info | jq '{tools_enabled, tools_available}'
 | `check_timers` | Reports status of all active timers | Enabled |
 | `web_search` | Example Tavily Web search provided (requires `OVA_SEARCH_API_KEY`) | Disabled |
 
-### Real-Time Notifications (EventBus → SSE)
+Timer expirations push real-time notifications to the browser via Server-Sent Events (`GET /v1/events`), with OS-level notifications when the tab is hidden.
 
-Tools can push real-time events to connected frontends via Server-Sent Events. The timer tool uses this to fire an alarm chime and notification when a countdown expires:
+Enable with `OVA_ENABLE_TOOLS=true` in `.env`. Enabling tools increases TTFA due to the LLM tool iterations.
 
-1. Timer expires on the server → `publish_event("timer_expired", {...})`
-2. EventBus pushes via SSE (`GET /v1/events`) → browser's `EventSource`
-3. Frontend handler plays a chime and shows a notification
+> See [TOOLS.md](TOOLS.md) for the full guide — creating custom tools, event publishing, frontend handler registration, security considerations, and the complete API reference.
 
-Notifications are **hybrid** — when the browser tab is hidden and the user has granted permission, an OS-level system notification appears (Web Notifications API). When the tab is visible, an in-page toast is shown instead.
-
-### Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OVA_ENABLE_TOOLS` | `false` | Master toggle for tool calling |
-| `OVA_MAX_TOOL_ITERATIONS` | `5` | Max LLM↔tool round-trips per request |
-| `OVA_DISABLED_TOOLS` | *(empty)* | Comma-separated tool names to disable |
-| `OVA_TOOL_<NAME>_ENABLED` | *(unset)* | Per-tool override (`true`/`false`) |
-
-### Creating Custom Tools
-
-See [`TOOLS.md`](TOOLS.md) for the full guide — tool function contract, event publishing, frontend handler registration, security considerations, and a complete walkthrough.
-
-## MCP (External Tool Servers - Experimental) 
+## MCP (External Tool Servers)
 
 OVA can connect to external [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers as a client, expanding its tool capabilities without writing Python code. MCP tools appear alongside native tools — the LLM sees a single unified tool list.
 
-### Enabling
-
-Set in `.env` and restart:
-
-```ini
-OVA_ENABLE_MCP=true
-OVA_ENABLE_TOOLS=true
-```
-
-### Configuration
-
-Add servers to `mcp_servers.json` (same format as Claude Desktop / VS Code):
+Enable with `OVA_ENABLE_MCP=true` and `OVA_ENABLE_TOOLS=true` in `.env`. Configure servers in `mcp_servers.json` (same format as Claude Desktop / VS Code):
 
 ```json
 {
@@ -507,14 +304,7 @@ Add servers to `mcp_servers.json` (same format as Claude Desktop / VS Code):
 
 Supports stdio (local subprocess), SSE, and Streamable HTTP transports. Servers connect in parallel at startup, with automatic reconnect on failure.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OVA_ENABLE_MCP` | `false` | Master toggle for MCP client |
-| `OVA_MCP_CONFIG` | `mcp_servers.json` | Config file path |
-| `OVA_MCP_CONNECT_TIMEOUT` | `10` | Per-server connect timeout (seconds) |
-| `OVA_MCP_TOOL_TIMEOUT` | `30` | Per-tool call timeout (seconds) |
-
-See [`MCP.md`](MCP.md) for the full guide — architecture, transport types, examples, error handling, and security considerations.
+> See [MCP.md](MCP.md) for the full guide — architecture, transport types, examples, error handling, and security considerations.
 
 ## API Endpoints
 
@@ -538,14 +328,6 @@ All endpoints are versioned under `/v1/`. Voice is an optional path parameter, l
 | `/v1/settings` | GET/POST | Runtime settings management (hot-reload capable) |
 | `/v1/settings/prompt` | POST | Update system prompt (session-only, no restart) |
 | `/v1/restart` | POST | Trigger server restart |
-
-### Streaming ASR WebSocket (`/v1/speech-to-text/stream`)
-
-Real-time speech recognition over WebSocket:
-
-- **Audio format**: Float32 PCM at 16kHz (send as binary)
-- **Responses**: JSON with `{"partial": "text..."}` or `{"final": "text..."}`
-- Supports continuous streaming - send chunks as they're recorded
 
 ### Hot-Reload Settings
 
@@ -646,39 +428,11 @@ ova/
 
 ## Security
 
-OVA is designed for **localhost use only**. For network/internet exposure, consider:
+OVA is designed for **localhost use only**. The default configuration is safe for local use — it binds to `localhost`, requires no authentication, and disables tools and MCP by default.
 
-1. **API Authentication** - Set `OVA_API_KEY` to require `Authorization: Bearer <key>` on all requests. The local frontend bypasses the key via origin-based trust, so it keeps working without hassle. The SDK reads the key from the `OVA_API_KEY` environment variable automatically.
-2. **Rate Limiting** - Not implemented. Use [slowapi](https://github.com/laurentS/slowapi) or nginx if needed
-3. **HTTPS/TLS** - Use a reverse proxy (nginx, caddy, traefik) for TLS termination. Never expose OVA directly to the internet without TLS
-4. **Firewall** - Restrict access to trusted IPs if possible
+For network/internet exposure, you need API authentication (`OVA_API_KEY`), HTTPS via a reverse proxy, and feature flag hardening. OVA is single-tenant by design — separate users need separate instances.
 
-### Input Size Limits
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OVA_MAX_TEXT_LENGTH` | `4096` | Max text input length in characters |
-| `OVA_MAX_IMAGE_SIZE` | `20971520` | Max image upload size in bytes (20 MB) |
-| `OVA_MAX_AUDIO_SIZE` | `20971520` | Max audio upload size in bytes (20 MB) |
-
-### Feature Flags
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OVA_API_KEY` | *(empty)* | API key for `Authorization: Bearer <key>`. Local frontend bypasses via origin trust. |
-| `OVA_DISABLE_RESTART_ENDPOINT` | `false` | Disables `/restart` API endpoint. Enable in production to prevent DoS. |
-| `OVA_DISABLE_FRONTEND_SETTINGS` | `false` | Removes settings button from UI and blocks `POST /settings`. |
-| `OVA_DISABLE_MULTIMODAL` | `false` | Removes text/image input section from UI (voice-only mode). Blocks image uploads. |
-| `OVA_DISABLE_FRONTEND_ACCESS` | `false` | API-only mode (SDK / headless). Skips starting the static file server (no port 8080). |
-
-**Production recommended:**
-```ini
-OVA_API_KEY=your-secret-key
-OVA_DISABLE_RESTART_ENDPOINT=true
-OVA_DISABLE_FRONTEND_SETTINGS=true
-OVA_DISABLE_MULTIMODAL=true
-OVA_DISABLE_FRONTEND_ACCESS=true    # API-only mode (SDK usage)
-```
+> See [SECURITY.md](SECURITY.md) for the full security overview — threat model, tool/MCP safety, API-only mode, hardening checklist, and all security-related configuration.
 
 ## Disclaimer
 

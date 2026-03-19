@@ -1,6 +1,6 @@
 # Environment Variables Reference
 
-Complete reference for all OVA environment variables.
+Complete reference for all OVA environment variables. For getting started, see [QUICKSTART.md](QUICKSTART.md).
 
 > Variables in `.env` override code defaults.
 
