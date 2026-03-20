@@ -32,8 +32,9 @@ Shared settings that apply to both TTS engines.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OVA_TTS_ENGINE` | `qwen3` | TTS backend: `qwen3` (voice cloning, streaming) or `kokoro` (predefined voices). Requires restart |
+| `OVA_STREAM_FORMAT` | `pcm` | Streaming format: `pcm` (WAV header + raw chunks, lower latency) or `wav` (each chunk is a complete WAV). Requires restart |
+| `OVA_PCM_PREBUFFER_SAMPLES` | `9600` | Samples to buffer before playback starts (9600 = 0.4s at 24kHz). Exported to frontend for both engines |
 | `OVA_EARLY_TTS_DECODE` | `true` | Start TTS on first sentence/~40 chars before full LLM response. Reduces TTFB by ~200-300ms |
-| `OVA_MAX_TTS_FRAMES` | `8000` | Hard cap on TTS generation frames. Prevents runaway generation when EOS is missed (8000 frames ~ 11 min at 12Hz) |
 | `OVA_MAX_PAUSE_DURATION` | `3.0` | Max seconds for `[Pause: X]` prosody tags. Longer values are clamped |
 
 ## Qwen3-TTS
@@ -51,10 +52,9 @@ All variables in this section apply only when `OVA_TTS_ENGINE=qwen3`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OVA_QWEN3_STREAM_FORMAT` | `pcm` | Streaming format: `pcm` (WAV header + raw chunks, lower latency) or `wav` (each chunk is a complete WAV). Requires restart |
 | `OVA_PCM_EMIT_EVERY_FRAMES` | `8` | Phase 2 (steady-state) emit interval. Lower = more frequent, smaller chunks |
 | `OVA_PCM_DECODE_WINDOW` | `80` | Phase 2 decode window size. Use 64 for 0.6B model, 80 for 1.7B |
-| `OVA_PCM_PREBUFFER_SAMPLES` | `9600` | Samples to buffer before playback starts (9600 = 0.4s at 24kHz) |
+| `OVA_MAX_TTS_FRAMES` | `8000` | Hard cap on TTS generation frames. Prevents runaway generation when EOS is missed (8000 frames ~ 11 min at 12Hz) |
 
 ### Two-Phase Streaming
 
@@ -123,6 +123,20 @@ All variables in this section apply only when `OVA_TTS_ENGINE=kokoro`.
 |----------|---------|-------------|
 | `OVA_ENABLE_WAKE_WORD` | `false` | Enable always-on wake word listening when idle. Requires `OVA_ENABLE_BARGE_IN=true` |
 | `OVA_WAKE_WORD` | `hey nova` | Wake word phrase. Use real English words for reliable ASR recognition |
+
+## Full-Duplex Mode
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OVA_ENABLE_DUPLEX` | `false` | Enable full-duplex WebSocket mode (`/v1/duplex` endpoint). Server-side VAD + turn-taking |
+| `OVA_DUPLEX_SILENCE_TIMEOUT_MS` | `800` | Silence duration (ms) to consider end-of-user-turn |
+| `OVA_DUPLEX_BOT_STOP_DELAY_MS` | `500` | Grace period (ms) after TTS finishes before bot transitions to idle |
+| `OVA_DUPLEX_BACKCHANNEL_TIMEOUT_MS` | `500` | Max wait (ms) for ASR partial to classify backchannel vs interruption |
+| `OVA_DUPLEX_VAD_THRESHOLD` | `0.5` | Server-side VAD sensitivity (Silero probability threshold, 0.0–1.0) |
+| `OVA_DUPLEX_VAD_CONFIRM_MS` | `64` | Server-side VAD speech onset confirmation (ms) |
+| `OVA_DUPLEX_VAD_SILENCE_MS` | `320` | Server-side VAD silence for speech offset (ms) |
+| `OVA_DUPLEX_INACTIVITY_TIMEOUT_S` | `300` | Close duplex WebSocket after no speech for N seconds |
+| `OVA_DUPLEX_INTERRUPT_COOLDOWN_MS` | `1200` | Cooldown (ms) after an interruption before processing another |
 
 ## Tools
 
