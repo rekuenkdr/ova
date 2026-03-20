@@ -15,8 +15,6 @@ A **fully-local** AI voice assistant with real-time streaming TTS, voice cloning
 - **[Hot-reload](#hot-reload-settings)** - Switch voice/language without restart
 - **Multi-language support** - 10 languages: zh, en, ja, ko, de, fr, ru, pt, es, it
 - **[Multimodal input](#multimodal-image--text)** - Attach images to chat queries for vision-language responses
-- **[Barge-in](#barge-in--wake-word-half-duplex)** - Interrupt TTS playback by speaking (Silero VAD speech detection)
-- **[Wake word](#barge-in--wake-word-half-duplex)** - Always-on "Hey Nova" detection with VAD-gated streaming ASR
 - **[Conversation mode](#conversation-mode)** - Switch between push-to-talk (half-duplex) and always-listening (full-duplex) with server-side VAD and turn-taking
 - **[Prosody control](#prosody-silence-tags)** - `[pause:X]` tags for deliberate silences in speech
 - **[Tool calling](#tools--function-calling)** - LLM can invoke real Python functions (timers, datetime, web search) with real-time push notifications via SSE
@@ -217,7 +215,7 @@ Instructions:
 - NEVER respond with lists - use complete sentences.
 - NEVER include any Markdown formatting, asterisks, underscores, or other formatting.
 - Do NOT include emojis.
-- Use punctuation to control speech rhythm: commas for brief pauses, ellipsis (...) for hesitation, dashes (--) for interruptions.
+- Use punctuation to control speech rhythm: commas for brief pauses.
 - You may use [pause:X] to insert a deliberate pause of X seconds (e.g., [pause:0.5]). Use sparingly for dramatic effect.
 ```
 
@@ -260,24 +258,6 @@ The chat interface supports attaching images:
 3. The vision-language model will analyze the image and respond
 
 The `/v1/chat` endpoint handles text + optional image queries directly.
-
-## Barge-In & Wake Word (Half-Duplex)
-
-> In **full-duplex** mode, barge-in is automatic (the mic is always open) and wake word is not needed. These features only apply to half-duplex.
-
-### Voice Activity Detection (Silero VAD)
-
-OVA uses [Silero VAD v6](https://github.com/snakers4/silero-vad) running client-side via ONNX Runtime Web for real-time speech detection. The model runs in the browser at 32ms frame intervals with no server round-trips. Falls back to RMS energy detection if the ONNX model fails to load.
-
-### Barge-In
-
-When enabled (`OVA_ENABLE_BARGE_IN=true`, the default), the user can interrupt TTS playback by speaking. VAD monitors the microphone during playback and triggers an interrupt when speech is confirmed. After a grace period (`OVA_BARGE_IN_GRACE_MS`), confirmed speech stops playback and starts recording with auto-send. Backchannel filtering (`OVA_BACKCHANNEL_FILTER`) can discard filler words like "yeah" or "ok" during barge-in.
-
-### Wake Word
-
-When enabled (`OVA_ENABLE_WAKE_WORD=true`), the assistant listens continuously for a configurable phrase (default: "hey nova") to start recording hands-free. The mic is acquired eagerly on page load. VAD monitors for speech onset (low CPU — no ASR until speech detected), then streaming ASR checks partial transcripts against the wake phrase. A pre-speech ring buffer (~500ms) captures audio before VAD triggers to avoid clipping.
-
-> See [VARIABLES.md](VARIABLES.md) for all barge-in and wake word settings (`OVA_ENABLE_BARGE_IN`, `OVA_VAD_*`, `OVA_AUTO_SEND_*`, `OVA_BARGE_IN_*`, `OVA_WAKE_WORD`).
 
 ## Conversation Mode
 
@@ -410,71 +390,6 @@ audio.play()
 For remote or authenticated servers, set `OVA_BASE_URL` and `OVA_API_KEY` environment variables (or pass as constructor arguments).
 
 Full documentation and examples: [ova-python-sdk](https://github.com/rekuenkdr/ova-python-sdk)
-
-## Project Structure
-
-```
-ova/
-├── index.html           # Frontend UI
-├── ova.sh               # CLI entry point (install/start/stop)
-├── ova/                 # Python package
-│   ├── api.py           # FastAPI app
-│   ├── asr_server.py    # ASR subprocess (Unix socket server, isolated CUDA)
-│   ├── mcp_client.py    # MCP client manager (external tool servers)
-│   ├── pipeline.py      # OVAPipeline class
-│   ├── prosody.py       # Prosody tag parsing ([pause:X])
-│   ├── duplex.py        # Full-duplex WebSocket session manager
-│   ├── turn_taking.py   # Turn-taking state machine (VAD + backchannel + interrupts)
-│   ├── server_vad.py    # Server-side Silero VAD (ONNX, 16kHz)
-│   ├── llm/             # LLM provider abstraction
-│   │   ├── base.py          # LLMProvider ABC + LLMResponse/ToolCall dataclasses
-│   │   ├── factory.py       # Provider factory (create_llm_provider)
-│   │   ├── ollama_provider.py   # Ollama backend
-│   │   └── openai_provider.py   # OpenAI-compatible backend (vLLM, TRT-LLM, etc.)
-│   ├── events.py        # EventBus — thread-safe server→client event publishing
-│   ├── audio.py         # Audio utilities
-│   ├── utils.py         # Logging & device detection
-│   └── tools/           # Plugin-style tool modules (auto-discovered + MCP)
-│       ├── __init__.py      # ToolRegistry — discovery, enable/disable, execution
-│       ├── _base.py         # Shared helpers (publish_event, get_pipeline_language)
-│       ├── get_datetime.py  # get_time, get_date tools
-│       ├── timer.py         # set_timer, check_timers tools (SSE expiration events)
-│       └── web_search.py    # web_search tool (disabled by default)
-├── static/
-│   ├── css/
-│   │   ├── base.css         # CSS reset & variables
-│   │   ├── components.css   # UI component styles
-│   │   └── animations.css   # Transitions & animations
-│   ├── js/
-│   │   ├── app.js           # Main entry point
-│   │   ├── audio.js         # Recording/playback/ASR
-│   │   ├── config.js        # Shared configuration
-│   │   ├── settings.js      # Settings panel
-│   │   ├── vad.js           # Silero VAD + RMS fallback
-│   │   ├── duplex.js        # Full-duplex client (mic capture, playback, WebSocket)
-│   │   ├── wakeword.js      # Wake word detection (VAD-gated ASR)
-│   │   ├── theme.js         # Dark/light theme
-│   │   ├── ui.js            # DOM state management
-│   │   ├── events.js        # SSE client — EventSource + onEvent() handler registry
-│   │   ├── notifications.js # Hybrid system/toast notifications + alarm chime
-│   │   └── pcm-processor.js # AudioWorklet for PCM streaming
-│   ├── img/                 # Static images
-│   └── themes/
-│       ├── dark/theme.css      # Dark theme (default)
-│       ├── light/theme.css     # Light theme
-│       ├── her/theme.css       # Her / Samantha theme
-│       └── hal-9000/theme.css  # HAL-9000 theme
-├── models/              # Local ML models (Silero VAD ONNX)
-├── profiles/            # Voice profiles by language (user-created)
-│   ├── en/, es/, fr/, de/, it/, pt/, ru/, ja/, ko/, zh/
-├── prompts/             # Default system prompts by language
-│   ├── en/, es/, fr/, de/, it/, pt/, ru/, ja/, ko/, zh/
-└── scripts/
-    ├── configure_cuda.py          # CUDA version configurator (12/13)
-    ├── enhance_profile_audio.py   # Audio denoising utility
-    ├── generate_voice_prompts.py  # Voice clone prompt generator
-    └── profile_pipeline.py        # Pipeline profiling utility
-```
 
 ## Security
 
