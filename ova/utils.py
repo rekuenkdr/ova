@@ -79,7 +79,7 @@ def _setup_logging():
     # Configure external loggers to reduce noise
     # OpenAI SDK logs verbose HTTP request/response details + tracebacks at DEBUG;
     # our own [LLM] logger already surfaces clean error messages via _handle_api_error
-    for name in ["openai", "httpcore", "httpx", "urllib3"]:
+    for name in ["openai", "httpcore", "httpx", "urllib3", "numba"]:
         logging.getLogger(name).setLevel(logging.WARNING)
 
 

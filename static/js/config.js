@@ -20,6 +20,7 @@ export const API_EVENTS = `${API_BASE}/v1/events`;
 
 // WebSocket ASR Configuration
 export const WS_ASR = `ws://localhost:5173/v1/speech-to-text/stream`;
+export const WS_DUPLEX = `ws://localhost:5173/v1/duplex`;
 export const TARGET_SR = 16000;
 export const CHUNK_MS = 500;
 

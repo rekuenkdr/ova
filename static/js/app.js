@@ -31,6 +31,12 @@ import {
 import { API_INFO, DEBUG, setDebug } from './config.js';
 import { connectEventStream, onEvent } from './events.js';
 import { showNotification, playAlarmTone, requestPermission } from './notifications.js';
+import { initDuplex, connectDuplex, isDuplexConnected, interruptDuplex, sendDuplexImage, sendDuplexText } from './duplex.js';
+
+// Track duplex state
+let duplexEnabled = false;
+let duplexLanguage = null;
+let duplexVoice = null;
 
 /**
  * Fetch PCM streaming config from backend
@@ -97,6 +103,12 @@ async function fetchBackendConfig() {
         setWakeWord(info.wake_word);
         console.log(`Wake word phrase: "${info.wake_word}"`);
       }
+      if (info.duplex_enabled) {
+        duplexEnabled = true;
+        duplexLanguage = info.language;
+        duplexVoice = info.voice;
+        console.log('Full-duplex mode: enabled');
+      }
     }
   } catch (e) {
     console.warn("Failed to fetch backend config, using defaults:", e);
@@ -114,8 +126,12 @@ function setupVoiceButton() {
     // Ignore clicks during waiting state
     if (talkBtn.classList.contains('state-waiting')) return;
 
-    // If playing, stop playback
+    // If playing, stop playback (duplex: interrupt server too)
     if (talkBtn.classList.contains('state-playing')) {
+      if (isDuplexConnected()) {
+        interruptDuplex();
+        return;
+      }
       stopCurrentAudio();
       setState('idle', { label: 'Tap to talk', sub: 'Tap again to send' });
       setInputsEnabled(true);
@@ -211,6 +227,12 @@ async function handleSendText() {
   clearTextInput();
   clearImage();
 
+  // In duplex mode, send text + image over WebSocket
+  if (isDuplexConnected()) {
+    if (text || image) sendDuplexText(text, image);
+    return;
+  }
+
   await sendTextMessage(text, image);
 }
 
@@ -292,8 +314,14 @@ async function init() {
   // Request OS notification permission (no-ops if already granted/denied)
   requestPermission();
 
-  // Start wake word listening if enabled (eagerly acquires mic)
-  enableWakeWordListening();
+  // Start duplex mode or half-duplex wake word listening
+  if (duplexEnabled) {
+    await initDuplex();
+    connectDuplex({ language: duplexLanguage, voice: duplexVoice });
+  } else {
+    // Start wake word listening if enabled (eagerly acquires mic)
+    enableWakeWordListening();
+  }
 
   console.log('OVA Voice Assistant initialized');
 }

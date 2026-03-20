@@ -6,6 +6,7 @@ import { setState, setInputsEnabled, showError } from './ui.js';
 import { API_CHAT_AUDIO, API_CHAT_TEXT, API_INTERRUPT, WS_ASR, TARGET_SR, CHUNK_MS, VAD_CONFIRM_FRAMES, VAD_SILENCE_FRAMES, AUTO_SEND_SILENCE_MS, AUTO_SEND_CONFIRM_MS, AUTO_SEND_TIMEOUT_MS, BARGE_IN_COOLDOWN_MS, BARGE_IN_GRACE_MS, BACKCHANNELS, DEBUG } from './config.js';
 import { startVADMonitor, stopVADMonitor, loadSileroModel } from './vad.js';
 import { startWakeWordDetection, stopWakeWordDetection, isWakeWordActive } from './wakeword.js';
+import { isDuplexConnected } from './duplex.js';
 
 // Audio state
 let currentAudio = null;
@@ -170,6 +171,8 @@ export function getWakeWordEnabled() {
  */
 export async function enableWakeWordListening() {
   if (!wakeWordEnabled) return;
+  // Wake word is not needed in duplex mode — mic is always streaming
+  if (isDuplexConnected()) return;
   try {
     const stream = await acquireMicStream();
     startWakeWordDetection(stream, {
