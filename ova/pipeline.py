@@ -124,15 +124,15 @@ KOKORO_VOICES = {
     ],
 }
 
-# Streaming format for Qwen3: "pcm" or "wav"
-QWEN3_STREAM_FORMAT = os.getenv("OVA_QWEN3_STREAM_FORMAT", "pcm")
+# Streaming format: "pcm" (WAV header + raw chunks) or "wav" (each chunk is a complete WAV)
+STREAM_FORMAT = os.getenv("OVA_STREAM_FORMAT", os.getenv("OVA_STREAM_FORMAT", "pcm"))
 
 # PCM streaming tuning
 PCM_EMIT_EVERY_FRAMES = int(os.getenv("OVA_PCM_EMIT_EVERY_FRAMES", "8"))
 PCM_PREBUFFER_SAMPLES = int(os.getenv("OVA_PCM_PREBUFFER_SAMPLES", "9600"))
 
 # Streaming optimizations (torch.compile)
-# Auto-selects optimal settings based on QWEN3_STREAM_FORMAT (pcm vs wav)
+# Auto-selects optimal settings based on STREAM_FORMAT (pcm vs wav)
 ENABLE_STREAMING_OPTIMIZATIONS = os.getenv("OVA_ENABLE_STREAMING_OPTIMIZATIONS", "true").lower() == "true"
 
 # Two-phase TTS streaming (aggressive first chunk for lower latency)
@@ -506,7 +506,7 @@ class OVAPipeline:
             # Capture codebook CUDA graph after warmup (same thread context required)
             # Must run under inference_mode — warmup passes mark model tensors as
             # inference tensors, and CUDA graph capture does inplace updates on them
-            if CODEBOOK_CUDA_GRAPH and QWEN3_STREAM_FORMAT == "pcm" and not USE_PAGED_ENGINE:
+            if CODEBOOK_CUDA_GRAPH and STREAM_FORMAT == "pcm" and not USE_PAGED_ENGINE:
                 import torch
                 logger_tts.info("Capturing codebook CUDA graph (private pool)...")
                 with torch.inference_mode():
@@ -562,7 +562,7 @@ class OVAPipeline:
                     use_paged_engine=True,
                     paged_gpu_memory_utilization=PAGED_GPU_MEMORY_UTILIZATION,
                 )
-            elif QWEN3_STREAM_FORMAT == "pcm":
+            elif STREAM_FORMAT == "pcm":
                 # Streaming mode: optimize for low latency with reduce-overhead
                 if CODEBOOK_CUDA_GRAPH:
                     # Fast codebook + manual CUDA graph (requires wip/experimental fork)
@@ -700,6 +700,14 @@ class OVAPipeline:
         arr = np.concatenate(chunks) if chunks else np.array([], dtype=np.float32)
         return numpy_to_wav_bytes(arr, sr=DEFAULT_SR)
 
+    def _tts_kokoro_streaming(self, text: str, *, voice: str = None):
+        """Streaming TTS using Kokoro - yields (pcm_chunk, sample_rate) tuples."""
+        voice_name = voice or self.current_voice
+        for _, _, audio in self.tts_model(text, voice=voice_name):
+            chunk = np.asarray(audio, dtype=np.float32)
+            if chunk.size > 0:
+                yield chunk, DEFAULT_SR
+
     def tts_batch(self, items: list[dict]) -> list[tuple[bytes, str | None, str | None]]:
         """Non-streaming batch TTS. Returns list of (wav_bytes, voice, language) per item.
 
@@ -786,6 +794,9 @@ class OVAPipeline:
             if prompt:
                 yield from self._tts_qwen3_streaming(text, voice_clone_prompt=prompt, language_name=lang_name, first_chunk_emit_every=first_chunk_emit_every)
                 return
+        elif self.tts_engine == "kokoro":
+            yield from self._tts_kokoro_streaming(text, voice=voice)
+            return
         # Non-streaming fallback
         wav_bytes = self.tts(text, voice=voice, language=language)
         with wave.open(io.BytesIO(wav_bytes), "rb") as wf:
@@ -965,6 +976,8 @@ class OVAPipeline:
     @property
     def supports_streaming(self) -> bool:
         """Check if current config supports streaming."""
+        if self.tts_engine == "kokoro":
+            return True
         return self.tts_engine == "qwen3" and self.voice_clone_prompt is not None
 
     def reload_prompt(self):
