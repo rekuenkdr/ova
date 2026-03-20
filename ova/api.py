@@ -1145,10 +1145,14 @@ async def update_settings(settings: SettingsUpdate):
 
     env_path = Path(__file__).parent.parent / ".env"
 
+    # Use the REQUESTED engine if provided, otherwise fall back to current
+    requested_engine = settings.tts_engine or TTS_ENGINE
+    voice_env_key = "OVA_QWEN3_VOICE" if requested_engine == "qwen3" else "OVA_KOKORO_VOICE"
+
     env_mapping = {
         "language": "OVA_LANGUAGE",
         "tts_engine": "OVA_TTS_ENGINE",
-        "voice": "OVA_QWEN3_VOICE" if TTS_ENGINE == "qwen3" else "OVA_KOKORO_VOICE",
+        "voice": voice_env_key,
         "stream_format": "OVA_STREAM_FORMAT",
         "conversation_mode": "OVA_ENABLE_DUPLEX",
     }
@@ -1219,8 +1223,7 @@ async def update_settings(settings: SettingsUpdate):
 
     change_keys = set(changes.keys())
 
-    # Determine the voice env var for the active engine
-    voice_env = "OVA_QWEN3_VOICE" if pipeline.tts_engine == "qwen3" else "OVA_KOKORO_VOICE"
+    voice_env = voice_env_key  # already computed above
 
     # Check if only voice changed (hot-switch)
     if change_keys == {voice_env}:
