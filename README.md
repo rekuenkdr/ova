@@ -15,8 +15,9 @@ A **fully-local** AI voice assistant with real-time streaming TTS, voice cloning
 - **[Hot-reload](#hot-reload-settings)** - Switch voice/language without restart
 - **Multi-language support** - 10 languages: zh, en, ja, ko, de, fr, ru, pt, es, it
 - **[Multimodal input](#multimodal-image--text)** - Attach images to chat queries for vision-language responses
-- **[Barge-in](#barge-in--wake-word)** - Interrupt TTS playback by speaking (Silero VAD speech detection)
-- **[Wake word](#barge-in--wake-word)** - Always-on "Hey Nova" detection with VAD-gated streaming ASR
+- **[Barge-in](#barge-in--wake-word-half-duplex)** - Interrupt TTS playback by speaking (Silero VAD speech detection)
+- **[Wake word](#barge-in--wake-word-half-duplex)** - Always-on "Hey Nova" detection with VAD-gated streaming ASR
+- **[Conversation mode](#conversation-mode)** - Switch between push-to-talk (half-duplex) and always-listening (full-duplex) with server-side VAD and turn-taking
 - **[Prosody control](#prosody-silence-tags)** - `[pause:X]` tags for deliberate silences in speech
 - **[Tool calling](#tools--function-calling)** - LLM can invoke real Python functions (timers, datetime, web search) with real-time push notifications via SSE
 - **[MCP client](#mcp-external-tool-servers)** - Connect to external [MCP](https://modelcontextprotocol.io/) servers for additional tool capabilities (filesystem, databases, APIs) without writing code
@@ -98,6 +99,7 @@ Key improvements over upstream:
 │   Frontend      │ ───────────────▶  │   Backend       │
 │   (index.html)  │   HTTP/WebSocket  │   (FastAPI)     │
 │   Port 8080     │ ◀───────────────  │   Port 5173     │
+│                 │ ◀──── /v1/duplex ──▶  (full-duplex) │
 └─────────────────┘                   └────────┬────────┘
                                                │
                     ┌──────────────────────────┴──────────────────────────┐
@@ -180,6 +182,16 @@ python scripts/enhance_profile_audio.py cassidy --language en
 
 This removes background noise, optionally upscales audio quality, and resamples to 24kHz. The original audio is backed up as `ref_audio_original.*`.
 
+Alternatively, you can use [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) for speech enhancement (denoising + bandwidth extension):
+
+```bash
+# Denoise + BWE to 24kHz (default)
+python scripts/enhance_profile_audio_RE-USE.py myvoice
+
+# English profile
+python scripts/enhance_profile_audio_RE-USE.py myvoice --language en
+```
+
 ## Prompting
 
 Each voice profile includes a `prompt.txt` that controls the assistant's personality and output style. Getting the prompt right is important because the LLM output is spoken aloud by TTS — formatting that looks fine in text can produce audible artifacts in speech.
@@ -249,7 +261,9 @@ The chat interface supports attaching images:
 
 The `/v1/chat` endpoint handles text + optional image queries directly.
 
-## Barge-In & Wake Word
+## Barge-In & Wake Word (Half-Duplex)
+
+> In **full-duplex** mode, barge-in is automatic (the mic is always open) and wake word is not needed. These features only apply to half-duplex.
 
 ### Voice Activity Detection (Silero VAD)
 
@@ -264,6 +278,36 @@ When enabled (`OVA_ENABLE_BARGE_IN=true`, the default), the user can interrupt T
 When enabled (`OVA_ENABLE_WAKE_WORD=true`), the assistant listens continuously for a configurable phrase (default: "hey nova") to start recording hands-free. The mic is acquired eagerly on page load. VAD monitors for speech onset (low CPU — no ASR until speech detected), then streaming ASR checks partial transcripts against the wake phrase. A pre-speech ring buffer (~500ms) captures audio before VAD triggers to avoid clipping.
 
 > See [VARIABLES.md](VARIABLES.md) for all barge-in and wake word settings (`OVA_ENABLE_BARGE_IN`, `OVA_VAD_*`, `OVA_AUTO_SEND_*`, `OVA_BARGE_IN_*`, `OVA_WAKE_WORD`).
+
+## Conversation Mode
+
+OVA supports two conversation modes, selectable from the settings panel or via `OVA_ENABLE_DUPLEX` in `.env`. Switching modes requires a restart and page reload.
+
+### Half-duplex (default)
+
+Push-to-talk: the user holds a button (or uses barge-in / wake word) to record, the backend processes the request, and streams TTS back. Audio flows one direction at a time. VAD runs client-side in the browser.
+
+### Full-duplex
+
+Always-listening: the microphone stays open and both user audio and bot audio flow simultaneously over a single persistent WebSocket (`/v1/duplex`). No button presses needed. Enable with `OVA_ENABLE_DUPLEX=true`.
+
+Under the hood:
+
+- **Server-side VAD** — Silero VAD (ONNX, 16kHz) runs on the backend, detecting speech onset and offset in the incoming audio stream.
+- **Turn-taking state machine** — Tracks conversation state through IDLE → USER_SPEAKING → BOT_THINKING → BOT_SPEAKING transitions. Each state determines what happens with incoming audio and outgoing TTS.
+- **Interruption handling** — If the user speaks while the bot is talking, TTS playback stops immediately and a new turn begins. A dynamic bot-stop delay accounts for client playback buffer latency so interrupts feel responsive.
+- **Backchannel filtering** — Short filler words ("yeah", "ok", "mhm") are detected and discarded so they don't accidentally interrupt the bot mid-sentence.
+
+### Comparison
+
+| | Half-duplex (default) | Full-duplex |
+|---|---|---|
+| Activation | Push-to-talk (+ optional barge-in / wake word) | Always listening |
+| VAD | Client-side (browser) | Server-side (backend) |
+| Connection | HTTP POST + separate WebSocket for ASR | Single bidirectional WebSocket |
+| Interruption | Barge-in stops playback, user re-records | Automatic — new turn starts instantly |
+
+> See [VARIABLES.md](VARIABLES.md) for all duplex tuning parameters (`OVA_ENABLE_DUPLEX`, `OVA_DUPLEX_*`, `OVA_SERVER_VAD_*`, `OVA_TURN_*`).
 
 ## Tools / Function Calling
 
@@ -322,6 +366,7 @@ All endpoints are versioned under `/v1/`. Voice is an optional path parameter, l
 | `/v1/speech-to-text` | POST | One-shot speech-to-text |
 | `/v1/interrupt` | POST | Stop current TTS playback (used by barge-in) |
 | `/v1/speech-to-text/stream` | WebSocket | Streaming ASR - send audio chunks, receive partial transcripts |
+| `/v1/duplex` | WebSocket | Full-duplex voice — bidirectional audio + JSON on a single connection |
 | `/v1/events` | GET | SSE stream for real-time push notifications (tools → browser) |
 | `/v1/info` | GET | Pipeline configuration info |
 | `/v1/health` | GET | Server readiness check |
@@ -340,6 +385,7 @@ The following can be changed at runtime without restart via `POST /v1/settings`:
 | System prompt | Yes | Via `/v1/settings/prompt` |
 | TTS engine | No | Requires restart |
 | Streaming format (pcm/wav) | No | Requires restart |
+| Conversation mode | No | Requires restart (and page reload) |
 
 ## SDK
 
@@ -377,6 +423,9 @@ ova/
 │   ├── mcp_client.py    # MCP client manager (external tool servers)
 │   ├── pipeline.py      # OVAPipeline class
 │   ├── prosody.py       # Prosody tag parsing ([pause:X])
+│   ├── duplex.py        # Full-duplex WebSocket session manager
+│   ├── turn_taking.py   # Turn-taking state machine (VAD + backchannel + interrupts)
+│   ├── server_vad.py    # Server-side Silero VAD (ONNX, 16kHz)
 │   ├── llm/             # LLM provider abstraction
 │   │   ├── base.py          # LLMProvider ABC + LLMResponse/ToolCall dataclasses
 │   │   ├── factory.py       # Provider factory (create_llm_provider)
@@ -402,6 +451,7 @@ ova/
 │   │   ├── config.js        # Shared configuration
 │   │   ├── settings.js      # Settings panel
 │   │   ├── vad.js           # Silero VAD + RMS fallback
+│   │   ├── duplex.js        # Full-duplex client (mic capture, playback, WebSocket)
 │   │   ├── wakeword.js      # Wake word detection (VAD-gated ASR)
 │   │   ├── theme.js         # Dark/light theme
 │   │   ├── ui.js            # DOM state management

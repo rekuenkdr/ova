@@ -1,5 +1,53 @@
 # Scripts
 
+## enhance_profile_audio_RE-USE.py
+
+Denoise and enhance voice profile audio using [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) (Universal Speech Enhancement, SEMamba architecture).
+
+### Install
+
+```bash
+# mamba-ssm must be built from source against your CUDA version
+TORCH_CUDA_ARCH_LIST="12.0" CUDA_HOME=/usr/local/cuda uv pip install mamba-ssm --no-binary mamba-ssm --no-build-isolation
+```
+
+The RE-USE model (~39MB) is auto-downloaded from HuggingFace on first run (cached in `~/.cache/huggingface/hub/`).
+
+### Usage
+
+```bash
+# Denoise + BWE to 24kHz (default, recommended)
+python scripts/enhance_profile_audio_RE-USE.py martina
+
+# English profile
+python scripts/enhance_profile_audio_RE-USE.py david -l en
+
+# Custom BWE target (e.g. 32kHz)
+python scripts/enhance_profile_audio_RE-USE.py martina --bwe 32000
+```
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `profile` | required | Profile name |
+| `-l, --language` | `es` | Language folder |
+| `--bwe` | `24000` | Bandwidth extension target rate in Hz (resamples before denoising) |
+| `--device` | `cuda:0` | CUDA device |
+
+### What it does
+
+1. Loads `ref_audio.{wav,ogg,mp3,m4a,flac}` from `profiles/<lang>/<profile>/`
+2. Converts to mono if stereo
+3. Downloads RE-USE model (~39MB) if not present
+4. Resamples to BWE target rate if input rate differs (default 24kHz for Qwen3-TTS)
+5. Runs STFT → SEMamba denoise → ISTFT (with sweep artifact removal)
+6. Backs up original as `ref_audio_original.*`
+7. Saves result as `ref_audio.wav`
+8. Removes cached `voice_clone_prompt_{0.6B,1.7B}.pt` (forces regeneration)
+
+---
+
 ## enhance_profile_audio.py
 
 Denoise voice profile audio using [Resemble Enhance](https://github.com/resemble-ai/resemble-enhance).
