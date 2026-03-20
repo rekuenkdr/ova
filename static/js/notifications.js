@@ -62,6 +62,26 @@ export function playAlarmTone() {
 }
 
 /**
+ * Play a short descending error tone using Web Audio API
+ */
+export function playErrorTone() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+
+    [440, 330].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, now + i * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.2);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + i * 0.15);
+        osc.stop(now + i * 0.15 + 0.2);
+    });
+}
+
+/**
  * Escape HTML to prevent XSS in toast content
  */
 function _escapeHtml(str) {

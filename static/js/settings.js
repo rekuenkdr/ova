@@ -17,6 +17,8 @@ import {
   getBargeInEnabled, getWakeWordEnabled,
   enableWakeWordListening, disableWakeWordListening
 } from './audio.js';
+import { sendConfig, isDuplexConnected } from './duplex.js';
+import { showNotification, playErrorTone } from './notifications.js';
 
 const API_SETTINGS_URL = API_SETTINGS;
 
@@ -82,6 +84,7 @@ export function initSettings() {
     kokoroVoiceSelect: document.getElementById('kokoroVoiceSelect'),
     qwen3Settings: document.getElementById('qwen3Settings'),
     kokoroSettings: document.getElementById('kokoroSettings'),
+    conversationModeSelect: document.getElementById('conversationModeSelect'),
     bargeInCheckbox: document.getElementById('bargeInCheckbox'),
     wakeWordCheckbox: document.getElementById('wakeWordCheckbox'),
   };
@@ -141,6 +144,7 @@ function setupEventListeners() {
   });
 
   ttsEngineSelect?.addEventListener('change', () => {
+    const engine = ttsEngineSelect?.value;
     updateEngineVisibility();
     updateLanguageAvailability();
     updateProfileOptions();
@@ -149,7 +153,6 @@ function setupEventListeners() {
     // Update prompt based on new engine
     const { languageSelect, profileSelect, systemPromptText } = settingsElements;
     const lang = languageSelect?.value;
-    const engine = ttsEngineSelect?.value;
     if (engine === "kokoro") {
       // Kokoro: load default prompt for language
       const defaultPrompt = defaultPrompts[lang];
@@ -179,6 +182,7 @@ function setupEventListeners() {
 
   streamModeSelect?.addEventListener('change', collectPendingSettings);
   kokoroVoiceSelect?.addEventListener('change', collectPendingSettings);
+  settingsElements.conversationModeSelect?.addEventListener('change', collectPendingSettings);
 
   // Save prompt on blur
   systemPromptText?.addEventListener('blur', savePromptOnBlur);
@@ -231,6 +235,9 @@ function updateSettingsUI() {
 
   if (ttsEngineSelect) ttsEngineSelect.value = currentSettings.tts_engine || "qwen3";
   if (streamModeSelect) streamModeSelect.value = currentSettings.stream_format || "pcm";
+
+  const { conversationModeSelect } = settingsElements;
+  if (conversationModeSelect) conversationModeSelect.value = currentSettings.conversation_mode || "half-duplex";
   if (systemPromptText) systemPromptText.value = currentSettings.system_prompt || "";
 
   updateEngineVisibility();
@@ -389,7 +396,8 @@ function updateRestartNotice() {
   // Language and voice changes are hot-reloadable
   const needsRestart =
     pendingSettings.tts_engine !== currentSettings.tts_engine ||
-    pendingSettings.stream_format !== currentSettings.stream_format;
+    pendingSettings.stream_format !== currentSettings.stream_format ||
+    pendingSettings.conversation_mode !== currentSettings.conversation_mode;
 
   restartNotice?.classList.toggle("show", needsRestart);
 }
@@ -414,7 +422,13 @@ function collectPendingSettings() {
     language: languageSelect?.value,
     tts_engine: engine,
     stream_format: streamModeSelect?.value,
+    conversation_mode: settingsElements.conversationModeSelect?.value,
   };
+
+  // Reactively hide barge-in/wake-word when full-duplex is selected
+  const duplexPending = settingsElements.conversationModeSelect?.value === 'full-duplex';
+  settingsElements.bargeInCheckbox?.closest('.setting-row')?.style.setProperty('display', duplexPending ? 'none' : '');
+  settingsElements.wakeWordCheckbox?.closest('.setting-row')?.style.setProperty('display', duplexPending ? 'none' : '');
 
   if (engine === "qwen3") {
     pendingSettings.voice = voiceValue;
@@ -450,6 +464,12 @@ async function applySettings() {
 
     const data = await res.json();
 
+    if (data.error) {
+      showNotification({ title: "Incompatible settings detected", message: data.error });
+      playErrorTone();
+      return;
+    }
+
     if (data.restart_required) {
       closeSettings();
       showRestartProgress();
@@ -483,6 +503,13 @@ async function applySettings() {
       await waitForServer();
 
       completeRestartProgress();
+
+      // Duplex mode changes require full reload (no teardown/re-init path)
+      if (pendingSettings.conversation_mode !== currentSettings.conversation_mode) {
+        window.location.reload();
+        return;
+      }
+
       await loadSettings();
       setState("idle", { label: "Tap to talk", sub: "Tap again to send" });
     } else {
@@ -525,6 +552,15 @@ async function applySettings() {
       }
 
       currentSettings = { ...currentSettings, ...pendingSettings };
+
+      // Notify active duplex session of voice/language changes
+      if (isDuplexConnected()) {
+        const config = {};
+        if (pendingSettings.language) config.language = pendingSettings.language;
+        if (pendingSettings.voice) config.voice = pendingSettings.voice;
+        if (Object.keys(config).length) sendConfig(config);
+      }
+
       updateRestartNotice();
       showSuccessFlash();
       closeSettings();
@@ -593,6 +629,11 @@ export async function openSettings() {
   settingsOverlay?.classList.add("open");
   settingsPanel?.classList.add("open");
   await loadSettings();
+
+  // Hide barge-in and wake word toggles in duplex mode (irrelevant — mic always streaming)
+  const duplex = isDuplexConnected();
+  settingsElements.bargeInCheckbox?.closest('.setting-row')?.style.setProperty('display', duplex ? 'none' : '');
+  settingsElements.wakeWordCheckbox?.closest('.setting-row')?.style.setProperty('display', duplex ? 'none' : '');
 }
 
 /**

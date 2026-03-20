@@ -156,6 +156,32 @@
         </div>
 
         <div class="setting-row">
+          <label class="setting-label" for="streamModeSelect">Streaming Mode</label>
+          <select class="setting-select" id="streamModeSelect">
+            <option value="pcm">PCM (Lower latency)</option>
+            <option value="wav">WAV (More compatible)</option>
+          </select>
+          <p class="setting-hint">Requires restart</p>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label" for="conversationModeSelect">Conversation Mode</label>
+          <select class="setting-select" id="conversationModeSelect">
+            <option value="half-duplex">Half-duplex (Push to talk)</option>
+            <option value="full-duplex">Full-duplex (Always listening)</option>
+          </select>
+          <p class="setting-hint">Requires restart</p>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label" for="languageSelect">Language</label>
+          <select class="setting-select" id="languageSelect">
+            <!-- Populated dynamically from backend -->
+          </select>
+          <p class="setting-hint">Affects TTS, ASR, LLM output</p>
+        </div>
+
+        <div class="setting-row">
           <label class="setting-toggle">
             <input type="checkbox" id="bargeInCheckbox">
             <div class="toggle-track">
@@ -176,14 +202,6 @@
           </label>
           <p class="setting-hint">Say the wake phrase to start recording</p>
         </div>
-
-        <div class="setting-row">
-          <label class="setting-label" for="languageSelect">Language</label>
-          <select class="setting-select" id="languageSelect">
-            <!-- Populated dynamically from backend -->
-          </select>
-          <p class="setting-hint">Affects TTS, ASR, LLM output</p>
-        </div>
       </div>
 
       <!-- Qwen3 Settings -->
@@ -196,15 +214,6 @@
             <!-- Populated dynamically -->
           </select>
           <p class="setting-hint">Changes take effect immediately</p>
-        </div>
-
-        <div class="setting-row">
-          <label class="setting-label" for="streamModeSelect">Streaming Mode</label>
-          <select class="setting-select" id="streamModeSelect">
-            <option value="pcm">PCM (Lower latency)</option>
-            <option value="wav">WAV (More compatible)</option>
-          </select>
-          <p class="setting-hint">Requires restart</p>
         </div>
 
       </div>

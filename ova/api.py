@@ -164,7 +164,7 @@ import re
 from .audio import numpy_to_wav_bytes, create_streaming_wav_header
 from .pipeline import (
     OVAPipeline, TTS_ENGINE, LANGUAGE,
-    QWEN3_STREAM_FORMAT, KOKORO_VOICE, PCM_PREBUFFER_SAMPLES, DEFAULT_SR,
+    STREAM_FORMAT, KOKORO_VOICE, PCM_PREBUFFER_SAMPLES, DEFAULT_SR,
     KOKORO_VOICES, QWEN3_LANGUAGES,
 )
 from .prosody import parse_prosody, PauseSegment, TextSegment
@@ -241,6 +241,17 @@ BACKCHANNEL_FILTER_ENABLED = os.getenv("OVA_BACKCHANNEL_FILTER", "false").lower(
 WAKE_WORD_ENABLED = os.getenv("OVA_ENABLE_WAKE_WORD", "false").lower() == "true"
 WAKE_WORD = os.getenv("OVA_WAKE_WORD", "hey nova").strip().lower()
 
+# Full-duplex mode
+DUPLEX_ENABLED = os.getenv("OVA_ENABLE_DUPLEX", "false").lower() == "true"
+DUPLEX_SILENCE_TIMEOUT_MS = int(os.getenv("OVA_DUPLEX_SILENCE_TIMEOUT_MS", "800"))
+DUPLEX_BOT_STOP_DELAY_MS = int(os.getenv("OVA_DUPLEX_BOT_STOP_DELAY_MS", "500"))
+DUPLEX_BACKCHANNEL_TIMEOUT_MS = int(os.getenv("OVA_DUPLEX_BACKCHANNEL_TIMEOUT_MS", "500"))
+DUPLEX_VAD_THRESHOLD = float(os.getenv("OVA_DUPLEX_VAD_THRESHOLD", "0.5"))
+DUPLEX_VAD_CONFIRM_MS = int(os.getenv("OVA_DUPLEX_VAD_CONFIRM_MS", "64"))
+DUPLEX_VAD_SILENCE_MS = int(os.getenv("OVA_DUPLEX_VAD_SILENCE_MS", "320"))
+DUPLEX_INACTIVITY_TIMEOUT_S = int(os.getenv("OVA_DUPLEX_INACTIVITY_TIMEOUT_S", "300"))
+DUPLEX_INTERRUPT_COOLDOWN_MS = int(os.getenv("OVA_DUPLEX_INTERRUPT_COOLDOWN_MS", "0"))
+
 # API key authentication (optional - empty means disabled)
 API_KEY = os.getenv("OVA_API_KEY", "").strip()
 
@@ -278,6 +289,7 @@ class SettingsUpdate(BaseModel):
     tts_engine: Optional[str] = None
     voice: Optional[str] = None
     stream_format: Optional[str] = None
+    conversation_mode: Optional[str] = None  # "half-duplex" or "full-duplex"
 
 
 class BatchTTSItem(BaseModel):
@@ -488,15 +500,15 @@ def _generate_pcm_for_segments(segments, first_chunk_state, voice=None, language
 def generate_audio_stream(text: str, voice=None, language=None):
     """
     Generator that yields audio.
-    Qwen3 + pcm: WAV header once + raw PCM chunks (true streaming)
-    Qwen3 + wav: Each chunk as complete WAV file (streaming)
-    Kokoro: Complete WAV file (non-streaming)
+    pcm mode: WAV header once + raw PCM chunks (true streaming)
+    wav mode: Each chunk as complete WAV file (streaming)
+    Fallback: Complete WAV file (non-streaming, if streaming not supported)
     """
     try:
         # Clear stale interrupt from previous request
         pipeline._interrupt.clear()
 
-        if pipeline.supports_streaming and QWEN3_STREAM_FORMAT == "pcm":
+        if pipeline.supports_streaming and STREAM_FORMAT == "pcm":
             segments = parse_prosody(text)
             state = {'first': True, 'sr': DEFAULT_SR}
 
@@ -504,7 +516,7 @@ def generate_audio_stream(text: str, voice=None, language=None):
                 yield pcm_bytes
 
         elif pipeline.supports_streaming:
-            # WAV streaming: each chunk as complete WAV file (Qwen3 + wav)
+            # WAV streaming: each chunk as complete WAV file
             chunks_yielded = 0
 
             for chunk, sr in pipeline.tts_streaming(text, voice=voice, language=language):
@@ -515,7 +527,7 @@ def generate_audio_stream(text: str, voice=None, language=None):
             logger_tts.info(f"WAV streaming completed: {chunks_yielded} chunks")
 
         else:
-            # Non-streaming: single complete WAV (Kokoro)
+            # Non-streaming fallback: single complete WAV
             wav_bytes = pipeline.tts(text, voice=voice, language=language)
             yield wav_bytes
             logger_tts.info("WAV TTS completed (non-streaming)")
@@ -528,7 +540,7 @@ def generate_audio_stream(text: str, voice=None, language=None):
 def _clean_markdown(text: str) -> str:
     """Remove markdown artifacts and system tags for TTS."""
     import re
-    text = text.replace("**", "").replace("_", "").replace("__", "").replace("#", "")
+    text = text.replace("**", "").replace("_", "").replace("__", "").replace("#", "").replace("...", ",").replace("--", ",")
     text = text.replace("[interrupted]", "").replace("[interrupted before speaking]", "")
     text = re.sub(r'\[your full unsaid response was:.*?\]', '', text, flags=re.DOTALL)
     return text.strip()
@@ -699,8 +711,8 @@ async def chat_request_handler(request: Request, voice_id: str | None = None, la
         language: optional language code (sticky — changes session)
 
     Returns:
-        - Streaming: chunked audio/wav responses (Qwen3)
-        - Non-streaming: single audio/wav response (Kokoro fallback)
+        - Streaming: chunked audio/wav responses
+        - Non-streaming: single audio/wav response (fallback)
     """
     request_start = time.perf_counter()
     voice = voice_id
@@ -734,7 +746,7 @@ async def chat_request_handler(request: Request, voice_id: str | None = None, la
         return Response(content=bytes(), media_type="audio/wav")
 
     if pipeline.supports_streaming:
-        if EARLY_TTS_DECODE and QWEN3_STREAM_FORMAT == "pcm" and not _tools_active():
+        if EARLY_TTS_DECODE and STREAM_FORMAT == "pcm" and not _tools_active():
             logger_api.info(f"Using early TTS decode for: {transcribed_text[:50]}... (lang: {pipeline.language})")
             gen = generate_interleaved_audio_stream(transcribed_text, voice=voice, language=language)
             gen = _log_ttfa(gen, request_start)
@@ -754,7 +766,7 @@ async def chat_request_handler(request: Request, voice_id: str | None = None, la
                 headers={"X-Stream-Supported": "true"}
             )
     else:
-        # Non-streaming fallback (Kokoro)
+        # Non-streaming fallback
         import anyio
         def _chat_and_tts():
             resp = pipeline.chat_with_tools(transcribed_text) if _tools_active() else pipeline.chat(transcribed_text)
@@ -831,7 +843,7 @@ async def text_chat_handler(request: Request, body: TextChatRequest, voice_id: s
             image_base64 = image_data
 
     if pipeline.supports_streaming:
-        if EARLY_TTS_DECODE and QWEN3_STREAM_FORMAT == "pcm" and not _tools_active():
+        if EARLY_TTS_DECODE and STREAM_FORMAT == "pcm" and not _tools_active():
             logger_api.info(f"Using early TTS decode for: {text[:50]}... (image: {bool(image_base64)}, lang: {pipeline.language})")
             gen = generate_interleaved_audio_stream(text, image=image_base64, voice=voice, language=language)
             gen = _log_ttfa(gen, request_start)
@@ -851,7 +863,7 @@ async def text_chat_handler(request: Request, body: TextChatRequest, voice_id: s
                 headers={"X-Stream-Supported": "true"}
             )
     else:
-        # Non-streaming fallback (Kokoro)
+        # Non-streaming fallback
         import anyio
         logger_api.info(f"Text chat: '{text[:50]}...' (image: {bool(image_base64)}, lang: {pipeline.language})")
         def _chat_and_tts():
@@ -953,7 +965,7 @@ async def tts_handler(request: Request, body: TTSRequest, voice_id: str | None =
             headers={"X-Stream-Supported": "true"}
         )
     else:
-        # Non-streaming fallback (Kokoro)
+        # Non-streaming fallback
         import anyio
         logger_api.info(f"TTS (pure): non-streaming '{text[:50]}...'")
         audio_out = await anyio.to_thread.run_sync(
@@ -1037,6 +1049,7 @@ async def info():
         "backchannel_filter_enabled": BACKCHANNEL_FILTER_ENABLED,
         "wake_word_enabled": WAKE_WORD_ENABLED,
         "wake_word": WAKE_WORD,
+        "duplex_enabled": DUPLEX_ENABLED,
         "debug": DEBUG,
     }
 
@@ -1110,8 +1123,9 @@ async def get_settings():
             "language": pipeline.language,
             "tts_engine": TTS_ENGINE,
             "voice": pipeline.current_voice,
-            "stream_format": QWEN3_STREAM_FORMAT,
+            "stream_format": STREAM_FORMAT,
             "system_prompt": pipeline.system_prompt,
+            "conversation_mode": "full-duplex" if DUPLEX_ENABLED else "half-duplex",
         },
         "profiles": available_profiles,
         "default_prompts": default_prompts,
@@ -1135,14 +1149,16 @@ async def update_settings(settings: SettingsUpdate):
         "language": "OVA_LANGUAGE",
         "tts_engine": "OVA_TTS_ENGINE",
         "voice": "OVA_QWEN3_VOICE" if TTS_ENGINE == "qwen3" else "OVA_KOKORO_VOICE",
-        "stream_format": "OVA_QWEN3_STREAM_FORMAT",
+        "stream_format": "OVA_STREAM_FORMAT",
+        "conversation_mode": "OVA_ENABLE_DUPLEX",
     }
 
     current = {
         "language": pipeline.language,
         "tts_engine": TTS_ENGINE,
         "voice": pipeline.current_voice,
-        "stream_format": QWEN3_STREAM_FORMAT,
+        "stream_format": STREAM_FORMAT,
+        "conversation_mode": "full-duplex" if DUPLEX_ENABLED else "half-duplex",
     }
 
     changes = {}
@@ -1153,6 +1169,10 @@ async def update_settings(settings: SettingsUpdate):
 
     if not changes:
         return {"restart_required": False, "message": "No changes"}
+
+    # Translate conversation_mode to boolean env value
+    if "OVA_ENABLE_DUPLEX" in changes:
+        changes["OVA_ENABLE_DUPLEX"] = "true" if changes["OVA_ENABLE_DUPLEX"] == "full-duplex" else "false"
 
     # Security: Validate all values before writing to .env
     for env_var, value in changes.items():
@@ -1168,18 +1188,10 @@ async def update_settings(settings: SettingsUpdate):
         return {"restart_required": False, "error": f"Invalid TTS engine: {changes['OVA_TTS_ENGINE']}"}
     if "OVA_LANGUAGE" in changes and changes["OVA_LANGUAGE"] not in VALID_LANGUAGES:
         return {"restart_required": False, "error": f"Invalid language: {changes['OVA_LANGUAGE']}"}
-    if "OVA_QWEN3_STREAM_FORMAT" in changes and changes["OVA_QWEN3_STREAM_FORMAT"] not in VALID_STREAM_FORMATS:
-        return {"restart_required": False, "error": f"Invalid stream format: {changes['OVA_QWEN3_STREAM_FORMAT']}"}
-
-    # Cross-field validation: Kokoro does not support PCM streaming
-    effective_engine = changes.get("OVA_TTS_ENGINE", TTS_ENGINE)
-    effective_format = changes.get("OVA_QWEN3_STREAM_FORMAT", QWEN3_STREAM_FORMAT)
-    if effective_engine == "kokoro" and effective_format == "pcm":
-        return {
-            "restart_required": False,
-            "error": "Kokoro engine does not support PCM streaming mode. "
-                     "Set stream_format to wav, or use Qwen3 engine for PCM."
-        }
+    if "OVA_STREAM_FORMAT" in changes and changes["OVA_STREAM_FORMAT"] not in VALID_STREAM_FORMATS:
+        return {"restart_required": False, "error": f"Invalid stream format: {changes['OVA_STREAM_FORMAT']}"}
+    if "OVA_ENABLE_DUPLEX" in changes and changes["OVA_ENABLE_DUPLEX"] not in ("true", "false"):
+        return {"restart_required": False, "error": "Invalid conversation mode"}
 
     # Helper to persist changes to .env
     def save_env(env_changes):
@@ -1215,11 +1227,13 @@ async def update_settings(settings: SettingsUpdate):
         new_voice = changes[voice_env]
         if pipeline.tts_engine == "qwen3":
             if pipeline.switch_voice(new_voice):
+                save_env(changes)
                 return {"restart_required": False, "message": f"Switched to voice: {new_voice}"}
             else:
                 return {"restart_required": True, "message": "Voice not preloaded, restart required"}
         else:
             if pipeline.switch_kokoro_voice(new_voice):
+                save_env(changes)
                 return {"restart_required": False, "message": f"Switched to voice: {new_voice}"}
 
     # Check if language changed, with optional voice change (hot-switch)
@@ -1229,6 +1243,7 @@ async def update_settings(settings: SettingsUpdate):
         new_voice = changes.get(voice_env)
         if pipeline.tts_engine == "qwen3":
             if pipeline.switch_language(new_language, new_voice):
+                save_env(changes)
                 return {
                     "restart_required": False,
                     "message": f"Switched to language: {new_language}, voice: {pipeline.current_voice}"
@@ -1239,6 +1254,7 @@ async def update_settings(settings: SettingsUpdate):
             if pipeline.switch_kokoro_language(new_language):
                 if new_voice:
                     pipeline.switch_kokoro_voice(new_voice)
+                save_env(changes)
                 return {
                     "restart_required": False,
                     "message": f"Switched to language: {new_language}, voice: {pipeline.current_voice}"
@@ -1468,3 +1484,67 @@ async def websocket_asr(websocket: WebSocket):
             await websocket.send_json({"error": error_msg})
         except (WebSocketDisconnect, RuntimeError):
             pass
+
+
+@app.websocket("/v1/duplex")
+async def websocket_duplex(websocket: WebSocket):
+    """Full-duplex voice assistant WebSocket.
+
+    Carries bidirectional audio (PCM int16) and JSON control/status messages
+    on a single persistent connection.
+    """
+    if not DUPLEX_ENABLED:
+        await websocket.close(code=4000, reason="Duplex mode not enabled")
+        return
+
+    # Security: API key check (same as ASR WebSocket)
+    if API_KEY:
+        origin = websocket.headers.get("origin", "")
+        sec_fetch_site = websocket.headers.get("sec-fetch-site", "")
+        is_trusted_origin = origin and origin in _build_cors_origins() and sec_fetch_site
+        if not is_trusted_origin:
+            ws_key = websocket.query_params.get("api_key", "")
+            if not secrets.compare_digest(ws_key, API_KEY):
+                await websocket.close(code=4001)
+                logger_api.warning("Duplex WebSocket rejected: invalid or missing API key")
+                return
+
+    # Security: Validate origin
+    origin = websocket.headers.get("origin", "")
+    allowed_origins = _build_cors_origins()
+    if origin and origin not in allowed_origins:
+        await websocket.close(code=4003)
+        logger_api.warning(f"Duplex WebSocket rejected: invalid origin {origin}")
+        return
+
+    await websocket.accept()
+
+    # Parse optional config from query params
+    language = websocket.query_params.get("language", pipeline.language)
+    voice = websocket.query_params.get("voice", pipeline.current_voice)
+
+    from .duplex import DuplexSession
+
+    session = DuplexSession(
+        websocket=websocket,
+        pipeline=pipeline,
+        generate_interleaved_fn=generate_interleaved_audio_stream,
+        generate_audio_fn=generate_audio_stream,
+        tools_active_fn=_tools_active,
+        clean_markdown_fn=_clean_markdown,
+        language=language,
+        voice=voice,
+        vad_threshold=DUPLEX_VAD_THRESHOLD,
+        vad_confirm_ms=DUPLEX_VAD_CONFIRM_MS,
+        vad_silence_ms=DUPLEX_VAD_SILENCE_MS,
+        silence_timeout_ms=DUPLEX_SILENCE_TIMEOUT_MS,
+        bot_stop_delay_ms=DUPLEX_BOT_STOP_DELAY_MS,
+        backchannel_timeout_ms=DUPLEX_BACKCHANNEL_TIMEOUT_MS,
+        interrupt_cooldown_ms=DUPLEX_INTERRUPT_COOLDOWN_MS,
+        inactivity_timeout_s=DUPLEX_INACTIVITY_TIMEOUT_S,
+        sample_rate=DEFAULT_SR,
+    )
+
+    logger_api.info(f"Duplex session started (lang={language}, voice={voice})")
+    await session.run()
+    logger_api.info("Duplex session ended")
