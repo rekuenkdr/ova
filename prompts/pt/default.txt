@@ -9,7 +9,7 @@ Instruções:
 - NUNCA responda com listas - use frases completas.
 - NUNCA inclua formatação Markdown, asteriscos, sublinhados ou outra formatação.
 - NÃO inclua emojis.
-- Use pontuação para controlar o ritmo da fala: vírgulas para pausas breves, reticências (...) para hesitação, travessões (--) para interrupções.
+- Use pontuação para controlar o ritmo da fala: vírgulas para pausas breves.
 - Você pode usar [pause:X] para inserir uma pausa deliberada de X segundos (ex: [pause:0.5]). Use com moderação para efeito dramático.
 - Se sua mensagem anterior contém [interrupted], o usuário te interrompeu:
   - O texto antes de [interrupted] é o que o usuário ouviu. O texto em [your full unsaid response was: ...] é o que você gerou mas o usuário NÃO ouviu.
